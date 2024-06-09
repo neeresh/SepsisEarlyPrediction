@@ -5,6 +5,7 @@ import shutil
 
 import numpy as np
 import pandas as pd
+import tqdm
 from sklearn.model_selection import KFold, GroupKFold, StratifiedKFold
 from tensorboardX import SummaryWriter
 
@@ -12,24 +13,13 @@ from utils.normalized_utility_score import normalized_utility_score
 from utils.path_utils import project_root
 from utils.config import nn_config
 from models.lgbm_classifier import LGBMClassifier, lgb_classifier_params
+
+
 # save_features_importance, save_model
 
 class TrainModel:
     def __init__(self):
         pass
-
-    def _log(self, message: str = '{}', value: any = None):
-        print(message.format(value))
-        logging.info(message.format(value))
-
-    def _setup_destination(self, current_time):
-        log_path = os.path.join(project_root(), 'data', 'logs', current_time)
-        os.mkdir(log_path)
-        logging.basicConfig(filename=os.path.join(log_path, current_time + '.log'), level=logging.DEBUG)
-        # shutil.copy(os.path.join(project_root(), 'pytorch_classifier.py'), log_path)
-        # shutil.copy(os.path.join(project_root(), 'train.py'), log_path)
-
-        return log_path
 
     def initialize_experiment(self):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -47,6 +37,10 @@ class TrainModel:
             is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
 
         writer = SummaryWriter(log_dir=os.path.join(project_root(), 'data', 'logs', current_time), comment='')
+
+        # Shifting labels and generating windows
+        training_examples = self.shift_labels(training_examples)
+        training_examples = self.generate_windows(training_examples)
 
         return training_examples, lengths_list, is_sepsis, writer, destination_path
 
@@ -71,8 +65,8 @@ class TrainModel:
         train_scores_limit = 1000
         self._log(message="train_score_limit={}", value=train_scores_limit)
 
-        for i, (ind_train, ind_test) in enumerate(skf.split(training_examples, is_sepsis)):
-
+        for i, (ind_train, ind_test) in tqdm.tqdm(enumerate(skf.split(training_examples, is_sepsis)),
+                                                  desc="Training Folds", total=5):
             # Getting splits
             x_train, x_train_lens, is_sepsis_train, x_test, x_test_lens, is_sepsis_test = self.get_train_test_splits(
                 ind_train, ind_test, training_examples, lengths_list, is_sepsis
@@ -102,12 +96,42 @@ class TrainModel:
 
             model.save_feature_importance(model.feature_importances_, x_train[0].columns.values,
                                           os.path.join(destination_path, 'feature_importance.png'))
-            model.save_model(model, path=os.path.join(destination_path,  'lgbm_{}.bim'.format(i)))
+            model.save_model(model, path=os.path.join(destination_path, 'lgbm_{}.bim'.format(i)))
 
         self._log(message="\n\nMean train MAE: {}", value=np.mean(train_scores))
         self._log(message="Mean test MAE: {}", value=np.mean(test_scores))
         self._log(message="Std train MAE: {}", value=np.std(train_scores))
         self._log(message="Std test MAE: {}", value=np.std(test_scores))
+
+    def _log(self, message: str = '{}', value: any = None):
+        print(message.format(value))
+        logging.info(message.format(value))
+
+    def _setup_destination(self, current_time):
+        log_path = os.path.join(project_root(), 'data', 'logs', current_time)
+        os.mkdir(log_path)
+        logging.basicConfig(filename=os.path.join(log_path, current_time + '.log'), level=logging.DEBUG)
+        # shutil.copy(os.path.join(project_root(), 'pytorch_classifier.py'), log_path)
+        # shutil.copy(os.path.join(project_root(), 'train.py'), log_path)
+
+        return log_path
+
+    def shift_labels(self, examples, hours_ahead=6):
+        for example in tqdm.tqdm(examples, desc='Shifting labels', total=len(examples)):
+            example['SepsisLabel'] = example['SepsisLabel'].shift(hours_ahead, fill_value=0)  # Filling NaNs 0
+
+        return examples
+
+    def generate_windows(self, examples, window_size=6):
+        windowed_examples = []
+
+        for example in tqdm.tqdm(examples, desc='Generating windows', total=len(examples)):
+            for start in range(0, len(example), window_size + 1):
+                windowed_example = example.iloc[start: start + window_size].copy()
+            windowed_example['SepsisLabel'] = example['SepsisLabel'].shift(-window_size, fill_value=0)  # Filling NaNs 0
+            windowed_examples.append(windowed_example)
+
+        return windowed_examples
 
 
 if __name__ == '__main__':
