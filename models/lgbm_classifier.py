@@ -69,7 +69,7 @@ class LGBMClassifier:
             thr = 0.5
 
         logging.info("thr: {}".format(thr))
-        print(thr)
+        print(f"Threshold: {thr}")
 
         for proba in probas:
             prediction = np.where(proba > thr, 1, 0)

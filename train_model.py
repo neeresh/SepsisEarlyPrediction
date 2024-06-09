@@ -15,8 +15,6 @@ from utils.config import nn_config
 from models.lgbm_classifier import LGBMClassifier, lgb_classifier_params
 
 
-# save_features_importance, save_model
-
 class TrainModel:
     def __init__(self):
         pass
@@ -39,8 +37,8 @@ class TrainModel:
         writer = SummaryWriter(log_dir=os.path.join(project_root(), 'data', 'logs', current_time), comment='')
 
         # Shifting labels and generating windows
-        training_examples = self.shift_labels(training_examples)
-        training_examples = self.generate_windows(training_examples)
+        # training_examples = self.shift_labels(training_examples)
+        # training_examples = self.generate_windows(training_examples)
 
         return training_examples, lengths_list, is_sepsis, writer, destination_path
 
@@ -65,8 +63,7 @@ class TrainModel:
         train_scores_limit = 1000
         self._log(message="train_score_limit={}", value=train_scores_limit)
 
-        for i, (ind_train, ind_test) in tqdm.tqdm(enumerate(skf.split(training_examples, is_sepsis)),
-                                                  desc="Training Folds", total=5):
+        for i, (ind_train, ind_test) in enumerate(skf.split(training_examples, is_sepsis)):
             # Getting splits
             x_train, x_train_lens, is_sepsis_train, x_test, x_test_lens, is_sepsis_test = self.get_train_test_splits(
                 ind_train, ind_test, training_examples, lengths_list, is_sepsis
