@@ -150,7 +150,11 @@ def plot_random_patient_recordings(dataset, feature='HR', num_plots=5, fill_meth
         axes[i].plot(patient_data['ICULOS'], patient_data[feature], label='Original Data', color='blue')
 
         # Imputing
-        temp_data = patient_data.fillna(method=fill_method)
+        if fill_method.lower() == 'ffill':
+            temp_data = patient_data.ffill()
+        elif fill_method.lower() == 'bfill':
+            temp_data = patient_data.bfill()
+
         axes[i].plot(temp_data['ICULOS'], temp_data[feature], label='Imputed Data', linestyle='--', color='orange')
 
         axes[i].set_title(f'Patient {patient_id}')
