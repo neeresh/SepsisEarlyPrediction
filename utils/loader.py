@@ -12,6 +12,7 @@ class DatasetWithPadding(Dataset):
         self.data, self.labels = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
 
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
+        logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels = [], []
         max_time_step = max(lengths_list)
         for patient_data, sepsis in zip(training_examples_list, is_sepsis):
@@ -29,9 +30,39 @@ class DatasetWithPadding(Dataset):
         return self.data[item], self.labels[item]
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, use_sampler=False):
-    # dataset = Dataset(examples=examples, lengths_list=lengths_list)
-    dataset = DatasetWithPadding(training_examples_list=examples, lengths_list=lengths_list, is_sepsis=is_sepsis)
+class DatasetWithWindows(Dataset):
+    def __init__(self, training_examples_list, lengths_list, is_sepsis, window_size=6, step_size=6):
+        self.window_size = window_size
+        self.step_size = step_size
+        self.data, self.labels = self._create_dataset(training_examples_list, lengths_list, is_sepsis,
+                                                      window_size, step_size)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, item):
+        return self.data[item], self.labels[item]
+
+    def _create_dataset(self, training_examples_list, lengths_list, is_sepsis, window_size, step_size):
+        logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
+        x, y = [], []
+        for time_step in range(window_size, len(training_examples_list) - step_size):
+            window = training_examples_list[time_step - window_size : time_step]
+            label = int(np.array(is_sepsis)[time_step : time_step + step_size].max())
+            x.append(window), y.append(label)
+
+        return np.array(x), np.array(y)
+
+
+def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mode="window"):
+
+    if mode == "window":
+        dataset = DatasetWithWindows(training_examples_list=examples, lengths_list=lengths_list, is_sepsis=is_sepsis,
+                                     window_size=6, step_size=5)
+        logging.info(f"Window size: {dataset.window_size} & Step size: {dataset.step_size}")
+
+    elif mode == "padding":
+        dataset = DatasetWithPadding(training_examples_list=examples, lengths_list=lengths_list, is_sepsis=is_sepsis)
 
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size

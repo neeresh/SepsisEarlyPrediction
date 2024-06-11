@@ -38,19 +38,22 @@ class DataSetup:
 
     def rewrite_csv(self, training_files):
 
-        lengths, is_sepsis, all_data, ind = [], [], np.zeros((1552210, 42)), 0  # (num_rows, features)
+        # lengths, is_sepsis, all_data, ind = [], [], np.zeros((1552210, 42)), 0  # (num_rows, features)
+        lengths, is_sepsis, all_data, ind = [], [], np.zeros((1552210, 40)), 0  # Removing SepsisLabel, Seg_it(patient_id)
         training_examples = []
         for i, training_file in enumerate(tqdm.tqdm(training_files)):
             example = pd.read_csv(training_file, sep=',')
-            example['seg_id'] = i
+            # example['seg_id'] = i
 
             training_examples.append(example)
             is_sepsis.append(1 if 1 in example['SepsisLabel'].values else 0)  # If patient diagnosed with sepsis or not
+            example = example.drop(['SepsisLabel'], axis=1)
             lengths.append(len(example))
 
             all_data[ind: ind + len(example), :] = example.values
             ind += len(example)
 
+        print(example.columns.values)
         all_data = pd.DataFrame(all_data, columns=example.columns.values, index=None)
         all_data.to_hdf(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.hdf'), key='df')
         all_data.to_csv(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.csv'), index=False)
@@ -78,6 +81,7 @@ class DataSetup:
             means = all_data.mean(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files):
                 example = pd.read_csv(training_file, sep=',')
+                example = example.drop(['SepsisLabel'], axis=1)
                 example.fillna(means, inplace=True)
                 training_examples.append(example)
 
@@ -91,6 +95,7 @@ class DataSetup:
             medians = all_data.median(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files):
                 example = pd.read_csv(training_file, sep=',')
+                example = example.drop(['SepsisLabel'], axis=1)
                 example.fillna(medians, inplace=True)
                 training_examples.append(example)
 
@@ -103,6 +108,7 @@ class DataSetup:
             training_examples = []
             for training_file in tqdm.tqdm(training_files):
                 example = pd.read_csv(training_file, sep=',')
+                example = example.drop(['SepsisLabel'], axis=1)
                 example.fillna(0, inplace=True)
                 training_examples.append(example)
 
@@ -115,6 +121,7 @@ class DataSetup:
             training_examples = []
             for training_file in tqdm.tqdm(training_files):
                 example = pd.read_csv(training_file, sep=',')
+                example = example.drop(['SepsisLabel'], axis=1)
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
                 example.fillna(value=0, inplace=True)
@@ -125,17 +132,17 @@ class DataSetup:
 
         return dataset_name
 
-    def add_lag_features(self, training_examples):
-        # TODO: Pending
-        training_examples_lag = []
-        for training_example in tqdm.tqdm(training_examples):
-            lag_columns = [column + '_lag' for column in training_example.columns.values[:35]]
-            lag_features = training_example.values[:-6, :35] - training_example.values[6: 35]
-            training_example = pd.concat([training_example, pd.DataFrame(columns=lag_columns)])
-
-            training_examples_lag.append(training_example)
-
-        return training_examples_lag
+    # def add_lag_features(self, training_examples):
+    #     # TODO: Pending
+    #     training_examples_lag = []
+    #     for training_example in tqdm.tqdm(training_examples):
+    #         lag_columns = [column + '_lag' for column in training_example.columns.values[:35]]
+    #         lag_features = training_example.values[:-6, :35] - training_example.values[6: 35]
+    #         training_example = pd.concat([training_example, pd.DataFrame(columns=lag_columns)])
+    #
+    #         training_examples_lag.append(training_example)
+    #
+    #     return training_examples_lag
 
 
 if __name__ == '__main__':
@@ -149,8 +156,8 @@ if __name__ == '__main__':
     training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
     training_files.sort()
     # setup.rewrite_csv(training_files=training_files)
-
-    # Standardising the data and Filling missing values
+    #
+    # # Standardising the data and Filling missing values
     data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
 
     # Adding lag features

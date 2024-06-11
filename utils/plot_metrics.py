@@ -4,7 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 
 
-def plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies):
+def plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path):
     epochs = range(1, len(train_losses) + 1)
 
     plt.figure(figsize=(12, 5))
@@ -24,4 +24,5 @@ def plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test
     plt.ylabel('Accuracy')
     plt.legend()
 
-    plt.show()
+    plt.savefig(save_path + '/acc_losses.png', bbox_inches='tight', dpi=300)
+    # plt.show()
