@@ -2,6 +2,7 @@ import logging
 import random
 
 import numpy as np
+import pandas as pd
 import torch
 import tqdm
 from torch.utils.data import Dataset, Sampler, DataLoader
@@ -20,6 +21,9 @@ class DatasetWithPadding(Dataset):
             patient_data = np.pad(patient_data, ((0, pad), (0, 0)), mode='constant')
             data.append(patient_data)
             labels.append(sepsis)
+
+        logging.info(f"Total number of samples after applying window method: ({len(x)})")
+        logging.info(f"Distribution of Sepsis:\n{pd.Series(y).value_counts()}")
 
         return data, labels
 
@@ -46,12 +50,19 @@ class DatasetWithWindows(Dataset):
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis, window_size, step_size):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         x, y = [], []
-        for time_step in range(window_size, len(training_examples_list) - step_size):
-            window = training_examples_list[time_step - window_size : time_step]
-            label = int(np.array(is_sepsis)[time_step : time_step + step_size].max())
-            x.append(window), y.append(label)
 
-        return np.array(x), np.array(y)
+        for idx, (patient_data, sepsis) in tqdm.tqdm(enumerate(zip(training_examples_list, is_sepsis)), desc="Creating windows", total=len(training_examples_list)):
+            for idx, time_step in enumerate(range(window_size, len(patient_data) - step_size)):
+                window = patient_data.iloc[time_step - window_size : time_step].values
+                label = int(np.array(is_sepsis[time_step : time_step + step_size]).max())
+                x.append(window)
+                y.append(label)
+        x, y = np.array(x), np.array(y)
+        logging.info(f"Total number of samples after applying window method: ({len(x)})")
+        logging.info(f"Distribution of sSepsis:\n{pd.Series(y).value_counts()}")
+        logging.info(f"Shape of the data: {x.shape}")
+
+        return x, y
 
 
 def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mode="window"):
