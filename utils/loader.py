@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 
 import numpy as np
@@ -6,6 +7,8 @@ import pandas as pd
 import torch
 import tqdm
 from torch.utils.data import Dataset, Sampler, DataLoader
+
+from utils.path_utils import project_root
 
 
 class DatasetWithPadding(Dataset):
@@ -51,10 +54,11 @@ class DatasetWithWindows(Dataset):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         x, y = [], []
 
-        for idx, (patient_data, sepsis) in tqdm.tqdm(enumerate(zip(training_examples_list, is_sepsis)), desc="Creating windows", total=len(training_examples_list)):
+        for idx, (patient_data, sepsis) in tqdm.tqdm(enumerate(zip(training_examples_list, is_sepsis)),
+                                                     desc="Creating windows", total=len(training_examples_list)):
             for idx, time_step in enumerate(range(window_size, len(patient_data) - step_size)):
-                window = patient_data.iloc[time_step - window_size : time_step].values
-                label = int(np.array(is_sepsis[time_step : time_step + step_size]).max())
+                window = patient_data.iloc[time_step - window_size: time_step].values
+                label = int(np.array(is_sepsis[time_step: time_step + step_size]).max())
                 x.append(window)
                 y.append(label)
         x, y = np.array(x), np.array(y)
@@ -66,7 +70,6 @@ class DatasetWithWindows(Dataset):
 
 
 def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mode="window"):
-
     if mode == "window":
         dataset = DatasetWithWindows(training_examples_list=examples, lengths_list=lengths_list, is_sepsis=is_sepsis,
                                      window_size=6, step_size=5)
@@ -84,3 +87,22 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return train_loader, test_loader
+
+
+def initialize_experiment():
+    data_file = "training_ffill_bfill_zeros.pickle"
+
+    # [[patient1], [patient2], [patient3], ..., [patientN]]
+    training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
+
+    with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
+        lengths_list = [int(length) for length in f.read().splitlines()]
+    with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
+        is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
+
+    return training_examples, lengths_list, is_sepsis
+
+
+if __name__ == '__main__':
+    training_examples, lengths_list, is_sepsis = initialize_experiment()
+    train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
