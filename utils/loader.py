@@ -54,17 +54,36 @@ class DatasetWithWindows(Dataset):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         x, y = [], []
 
-        for idx, (patient_data, sepsis) in tqdm.tqdm(enumerate(zip(training_examples_list, is_sepsis)),
-                                                     desc="Creating windows", total=len(training_examples_list)):
+        patients_counter = 0
+        for idx, subset in tqdm.tqdm(enumerate(training_examples_list),  desc="Creating windows",
+                                           total=len(training_examples_list)):
+
+            sepsis = subset['SepsisLabel'].values
+            patient_data = subset.drop(['SepsisLabel', 'PatientID'], axis=1).values
+
+            patients_counter += 1
             for idx, time_step in enumerate(range(window_size, len(patient_data) - step_size)):
-                window = patient_data.iloc[time_step - window_size: time_step].values
-                label = int(np.array(is_sepsis[time_step: time_step + step_size]).max())
+                window = patient_data[time_step - window_size: time_step]
+                label = int(sepsis[time_step: time_step + step_size].max())
                 x.append(window)
                 y.append(label)
+
         x, y = np.array(x), np.array(y)
+
         logging.info(f"Total number of samples after applying window method: ({len(x)})")
         logging.info(f"Distribution of sSepsis:\n{pd.Series(y).value_counts()}")
         logging.info(f"Shape of the data: {x.shape}")
+        logging.info(f"Total number of patients: {patients_counter}")
+
+        """
+        Total number of samples after applying window method: (1110191)
+        Distribution of sSepsis:
+        0    1091066
+        1      19125
+        Name: count, dtype: int64
+        Shape of the data: (1110191, 6, 40)
+        
+        """
 
         return x, y
 
