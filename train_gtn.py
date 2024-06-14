@@ -58,7 +58,7 @@ def initialize_experiment(data_file=None):
 
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int,
-                val_loader: Optional[DataLoader] = None):
+                val_loader: Optional[DataLoader] = None, save_path=None):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
@@ -92,7 +92,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
                 "Train Loss": running_train_loss / total_train,
                 "Train Acc": correct_train / total_train
             })
-        
+
         scheduler.step()
 
         epoch_train_loss = running_train_loss / len(train_loader.dataset)
@@ -151,13 +151,25 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         tqdm.tqdm.write(message)
         logging.info(message)
 
+    save_model(model, save_path)
+
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
             "test_accuracy": test_accuracies}
 
 
-if __name__ == '__main__':
+def save_model(model, save_path=None):
+    torch.save(model.state_dict(), save_path)
 
+
+def load_model(model_arch, file_path):
+    model.load_state_dict(torch.load(file_path))
+    model.eval()
+
+    return model
+
+
+if __name__ == '__main__':
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
@@ -165,7 +177,7 @@ if __name__ == '__main__':
 
     config = gtn_param
     d_input, d_channel, d_output = 6, 63, 2  # (time_steps (window_size), channels, num_classes)
-    num_epochs = 10
+    num_epochs = 1
 
     logging.info(config)
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
@@ -176,12 +188,14 @@ if __name__ == '__main__':
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device='cuda').to('cuda')
 
-    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs, save_path=destination_path)
     train_losses, val_losses, test_losses, train_accuracies, val_accuracies, test_accuracies = metrics['train_loss'], \
-        metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
+        metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics[
+        'test_accuracy']
 
-    
+    # save_path = './data/logs'
+    # plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
+    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
+                               save_path=destination_path)  # Server
 
-    save_path = './data/logs'
-    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
-    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)  # Server
+

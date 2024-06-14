@@ -15,15 +15,15 @@ from utils.add_features import *
 class DataSetup:
     def __init__(self):
 
-        # self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-        #                                 'training_setA'),
-        #                    os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-        #                                 'training_setB')]
-        
-        self.data_paths = [os.path.join(project_root(), 'files', 'challenge-2019', '1.0.0', 'training',
+        self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
                                         'training_setA'),
-                           os.path.join(project_root(), 'files', 'challenge-2019', '1.0.0', 'training',
+                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
                                         'training_setB')]
+        
+        # self.data_paths = [os.path.join(project_root(), 'files', 'challenge-2019', '1.0.0', 'training',
+        #                                 'training_setA'),
+        #                    os.path.join(project_root(), 'files', 'challenge-2019', '1.0.0', 'training',
+        #                                 'training_setB')]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
         self.hdf_path = os.path.join(project_root(), 'data', 'hdf')
