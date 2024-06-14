@@ -160,27 +160,21 @@ if __name__ == '__main__':
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, 2048, mode='window')
 
-    # for inputs, targets in train_loader:
-    #     break
-    #
-    # print(inputs.shape)
-    # print(pd.Series(targets).value_counts())
+    config = gtn_param
+    d_input, d_channel, d_output = 6, 63, 2  # (time_steps (window_size), channels, num_classes)
+    num_epochs = 3
 
-    # config = gtn_param
-    # d_input, d_channel, d_output = 6, 63, 2  # (time_steps (window_size), channels, num_classes)
-    # num_epochs = 3
-    #
-    # logging.info(config)
-    # logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
-    # logging.info(f"Number of epochs: {num_epochs}")
-    #
-    # model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-    #                                 d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-    #                                 v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-    #                                 pe=config['pe'], mask=config['mask'], device='cuda').to('cuda')
-    #
-    # metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
-    # train_losses, val_losses, test_losses, train_accuracies, val_accuracies, test_accuracies = metrics['train_loss'], \
-    #     metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
-    #
-    # plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)
+    logging.info(config)
+    logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
+    logging.info(f"Number of epochs: {num_epochs}")
+
+    model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                                    d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                                    v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                                    pe=config['pe'], mask=config['mask'], device='cuda').to('cuda')
+
+    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    train_losses, val_losses, test_losses, train_accuracies, val_accuracies, test_accuracies = metrics['train_loss'], \
+        metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
+
+    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)

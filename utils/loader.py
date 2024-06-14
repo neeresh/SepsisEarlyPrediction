@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 import tqdm
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, Sampler, DataLoader
 
 from utils.path_utils import project_root
@@ -79,21 +80,44 @@ class DatasetWithWindows(Dataset):
         return x, y
 
 
+def get_train_test_indicies():
+
+    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
+    train, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
+
+    train_indicies = train.index.values
+    test_indicies = test.index.values
+
+    return train_indicies, test_indicies
+
+
 def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mode="window"):
+
+    train_indicies, test_indicies = get_train_test_indicies()
+
+    train_samples = [examples[idx] for idx in train_indicies]
+    test_samples = [examples[idx] for idx in test_indicies]
+
+    train_lengths_list = [lengths_list[idx] for idx in train_indicies]
+    test_lengths_list = [lengths_list[idx] for idx in test_indicies]
+
+    is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
+    is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+
     if mode == "window":
-        dataset = DatasetWithWindows(training_examples_list=examples, lengths_list=lengths_list, is_sepsis=is_sepsis,
-                                     window_size=6, step_size=5)
-        logging.info(f"Window size: {dataset.window_size} & Step size: {dataset.step_size}")
+        train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train, window_size=6, step_size=5)
+        test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test, window_size=6, step_size=5)
+
+        logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
 
     elif mode == "padding":
-        dataset = DatasetWithPadding(training_examples_list=examples, lengths_list=lengths_list, is_sepsis=is_sepsis)
+        train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train)
+        test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test,)
 
-    train_size = int(0.8 * len(dataset))
-    test_size = len(dataset) - train_size
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
     logging.info(f"Num of training examples: {len(train_dataset)}")
     logging.info(f"Num of test examples: {len(test_dataset)}")
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return train_loader, test_loader
@@ -116,8 +140,7 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
 #         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
 #
 #     return training_examples, lengths_list, is_sepsis
-#
-#
+
 # if __name__ == '__main__':
 #     training_examples, lengths_list, is_sepsis = initialize_experiment()
 #     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
