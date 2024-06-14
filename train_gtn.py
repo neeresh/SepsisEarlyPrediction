@@ -61,6 +61,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
                 val_loader: Optional[DataLoader] = None):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
@@ -91,6 +92,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
                 "Train Loss": running_train_loss / total_train,
                 "Train Acc": correct_train / total_train
             })
+        
+        scheduler.step()
 
         epoch_train_loss = running_train_loss / len(train_loader.dataset)
         epoch_train_accuracy = correct_train / total_train
@@ -162,7 +165,7 @@ if __name__ == '__main__':
 
     config = gtn_param
     d_input, d_channel, d_output = 6, 63, 2  # (time_steps (window_size), channels, num_classes)
-    num_epochs = 3
+    num_epochs = 10
 
     logging.info(config)
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
@@ -177,4 +180,8 @@ if __name__ == '__main__':
     train_losses, val_losses, test_losses, train_accuracies, val_accuracies, test_accuracies = metrics['train_loss'], \
         metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
 
-    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)
+    
+
+    save_path = './data/logs'
+    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
+    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)  # Server

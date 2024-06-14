@@ -2,7 +2,7 @@
 
 # This file contains functions for computing scores for the 2019 PhysioNet/CinC
 # challenge.
-#
+
 # Written by M. Reyna on 1 February 2019.  Last updated on 2 February 2019.
 #
 # The compute_utility_2019 function computes a normalized utility score for a
