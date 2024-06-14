@@ -54,7 +54,8 @@ def sofa_score(row):
 def detect_sofa_change(data, time_window=24):
     data['SOFA_score_diff'] = data['SOFA_score'].diff(periods=time_window)
     data['SOFA_deterioration'] = (data['SOFA_score_diff'] >= 2).astype(int)
-    data['SOFA_score_diff'].fillna(value=0, inplace=True)
+    data['SOFA_score_diff'] = data['SOFA_score_diff'].fillna(value=0)
+    # data['SOFA_score_diff'].fillna(value=0, inplace=True)
     return data
 
 
@@ -107,7 +108,9 @@ def sofa_indicator(row):
 def detect_qsofa_change(data, time_window=24):
     data['qSOFA_score_diff'] = data['qSOFA_score'].diff(periods=time_window)
     data['qSOFA_deterioration'] = (data['qSOFA_score_diff'] >= 2).astype(int)
-    data['qSOFA_score_diff'].fillna(value=0, inplace=True)
+
+    data['qSOFA_score_diff'] = data['qSOFA_score_diff'].fillna(value=0)
+    # data['qSOFA_score_diff'].fillna(value=0, inplace=True)
 
     return data
 
@@ -165,7 +168,7 @@ def paco2_sirs(paco2):
 
 def wbc_sirs(wbc):
     sirs_score = 0
-    if wbc*1000 < 4000 or wbc*1000 > 12000:
+    if wbc * 1000 < 4000 or wbc * 1000 > 12000:
         sirs_score += 1
     return sirs_score
 
@@ -175,7 +178,8 @@ def t_suspicion(patient_data):
     Since we don't have information about IV antibiotics and blood cultures,
     we are is considering that patient have infection if any 2 SIRS criteria are met
     """
-    patient_data['infection_proxy'] = (patient_data[['Temp_sirs', 'HR_sirs', 'Resp_sirs']].eq(1).sum(axis=1) >= 2).astype(int)
+    patient_data['infection_proxy'] = (
+                patient_data[['Temp_sirs', 'HR_sirs', 'Resp_sirs']].eq(1).sum(axis=1) >= 2).astype(int)
 
     # t_suspicion is the first hour of (ICULOS) where infection proxy is positive at time t
     patient_data['t_suspicion'] = patient_data.groupby(['PatientID'])['ICULOS'].transform(
@@ -183,12 +187,15 @@ def t_suspicion(patient_data):
 
     return patient_data
 
+
 def t_sofa(data):
     """
     Two-point deterioration in SOFA score at time t but within a 24-hour period.
     """
-    data['t_sofa'] = data['SOFA_score_diff'].where((abs(data['SOFA_score_diff']) >= 2) & (data['ICULOS'] <= 24), other=0)
+    data['t_sofa'] = data['SOFA_score_diff'].where((abs(data['SOFA_score_diff']) >= 2) & (data['ICULOS'] <= 24),
+                                                   other=0)
     return data
+
 
 def t_sepsis(row):
     if pd.isna(row['t_suspicion']) or row['t_suspicion'] == 0 or row['t_sofa'] == 0:
@@ -229,5 +236,3 @@ if __name__ == '__main__':
     patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
 
     print(f"Total number of features: {patient_data.shape[1]}:", patient_data.columns)
-
-

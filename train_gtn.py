@@ -31,11 +31,13 @@ def _log(message: str = '{}', value: any = None):
     logging.info(message.format(value))
 
 
-def initialize_experiment():
+def initialize_experiment(data_file=None):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     destination_path = _setup_destination(current_time)
 
-    data_file = "training_ffill_bfill_zeros.pickle"
+    if data_file is None:
+        data_file = "training_ffill_bfill_zeros.pickle"
+
     _log(message="Datafile used: {}".format(data_file))
 
     # [[patient1], [patient2], [patient3], ..., [patientN]]
@@ -154,7 +156,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 if __name__ == '__main__':
 
     # Getting Data and Loaders
-    training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment()
+    data_file = "final_dataset.pickle"
+    training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, 2048, mode='window')
 
     # for inputs, targets in train_loader:
@@ -163,21 +166,21 @@ if __name__ == '__main__':
     # print(inputs.shape)
     # print(pd.Series(targets).value_counts())
 
-    config = gtn_param
-    d_input, d_channel, d_output = 6, 40, 2  # (time_steps (window_size), channels, num_classes)
-    num_epochs = 1
-
-    logging.info(config)
-    logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
-    logging.info(f"Number of epochs: {num_epochs}")
-
-    model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                                    d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                                    v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                    pe=config['pe'], mask=config['mask'], device='cuda').to('cuda')
-
-    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
-    train_losses, val_losses, test_losses, train_accuracies, val_accuracies, test_accuracies = metrics['train_loss'], \
-        metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
-
-    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)
+    # config = gtn_param
+    # d_input, d_channel, d_output = 6, 63, 2  # (time_steps (window_size), channels, num_classes)
+    # num_epochs = 3
+    #
+    # logging.info(config)
+    # logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
+    # logging.info(f"Number of epochs: {num_epochs}")
+    #
+    # model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+    #                                 d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+    #                                 v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+    #                                 pe=config['pe'], mask=config['mask'], device='cuda').to('cuda')
+    #
+    # metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    # train_losses, val_losses, test_losses, train_accuracies, val_accuracies, test_accuracies = metrics['train_loss'], \
+    #     metrics['val_loss'], metrics['test_loss'], metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
+    #
+    # plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)

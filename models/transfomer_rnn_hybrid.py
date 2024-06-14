@@ -8,7 +8,7 @@ import tqdm
 from sklearn.model_selection import StratifiedKFold
 
 from train_model import TrainModel
-from utils.loader import make_raw_loader, collate
+from utils.loader import make_loader, collate
 from utils.normalized_utility_score import normalized_utility_score
 
 
@@ -196,7 +196,7 @@ class TransformerRNNHybrid:
         self.eval_set = eval_set
 
     def fit(self, examples, lengths_list, is_sepsis):
-        loader = make_raw_loader(examples, lengths_list=lengths_list,
+        loader = make_loader(examples, lengths_list=lengths_list,
                                  is_sepsis=is_sepsis, batch_size=self.conf['batch_size'])
 
         abs_i = 0
@@ -211,8 +211,8 @@ class TransformerRNNHybrid:
             tq = tqdm.tqdm(loader)
             for i, (inputs, targets) in enumerate(tq):
                 self.optimizer.zero_grad()
-
                 x, y = collate(inputs, targets)
+                print(x.shape, y.shape)
                 output = self.model(x)
                 batch_size, _, out_dim = output.size()
                 output = output.view(-1)
@@ -311,4 +311,5 @@ if __name__ == '__main__':
     model = TransformerRNNHybrid(transformer_rnn_param)
     model.model.to('cuda')
 
-    model.fit(examples=training_examples, lengths_list=lengths_list, is_sepsis=is_sepsis)
+    print(model.model)
+    # model.fit(examples=training_examples, lengths_list=lengths_list, is_sepsis=is_sepsis)

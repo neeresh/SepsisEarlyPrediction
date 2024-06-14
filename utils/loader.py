@@ -51,7 +51,6 @@ class DatasetWithWindows(Dataset):
         return self.data[item], self.labels[item]
 
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis, window_size, step_size):
-        logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         x, y = [], []
 
         patients_counter = 0
@@ -70,20 +69,12 @@ class DatasetWithWindows(Dataset):
 
         x, y = np.array(x), np.array(y)
 
+        logging.info(f"Input features ({len(subset.drop(['SepsisLabel', 'PatientID'], axis=1).columns)}): "
+                     f"{subset.drop(['SepsisLabel', 'PatientID'], axis=1).columns}")
         logging.info(f"Total number of samples after applying window method: ({len(x)})")
         logging.info(f"Distribution of sSepsis:\n{pd.Series(y).value_counts()}")
         logging.info(f"Shape of the data: {x.shape}")
         logging.info(f"Total number of patients: {patients_counter}")
-
-        """
-        Total number of samples after applying window method: (1110191)
-        Distribution of sSepsis:
-        0    1091066
-        1      19125
-        Name: count, dtype: int64
-        Shape of the data: (1110191, 6, 40)
-        
-        """
 
         return x, y
 
@@ -108,20 +99,30 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
     return train_loader, test_loader
 
 
-def initialize_experiment():
-    data_file = "training_ffill_bfill_zeros.pickle"
-
-    # [[patient1], [patient2], [patient3], ..., [patientN]]
-    training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
-
-    with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
-        lengths_list = [int(length) for length in f.read().splitlines()]
-    with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
-        is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
-
-    return training_examples, lengths_list, is_sepsis
-
-
-if __name__ == '__main__':
-    training_examples, lengths_list, is_sepsis = initialize_experiment()
-    train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
+# def initialize_experiment(data_file=None):
+#
+#     if data_file is not None:
+#         data_file = "training_ffill_bfill_zeros.pickle"
+#     data_file = "final_dataset.pickle"
+#
+#     print(f"Dataset used: {data_file}")
+#
+#     # [[patient1], [patient2], [patient3], ..., [patientN]]
+#     training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
+#
+#     with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
+#         lengths_list = [int(length) for length in f.read().splitlines()]
+#     with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
+#         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
+#
+#     return training_examples, lengths_list, is_sepsis
+#
+#
+# if __name__ == '__main__':
+#     training_examples, lengths_list, is_sepsis = initialize_experiment()
+#     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
+#
+#     for idx, patient_data in enumerate(train_loader):
+#         if idx==1:
+#             print(patient_data)
+#             break
