@@ -100,7 +100,7 @@ def get_train_test_indicies():
     return train_indicies, test_indicies
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mode="window"):
+def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=10, mode="window"):
 
     train_indicies, test_indicies = get_train_test_indicies()
 
@@ -116,7 +116,7 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
     if mode == "window":
         train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train, window_size=1, step_size=5)
         test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test, window_size=6, step_size=5)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
 
         logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
@@ -125,15 +125,13 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
         train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train)
         test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test,)
     
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     logging.info(f"Num of training examples: {len(train_dataset)}")
     logging.info(f"Num of test examples: {len(test_dataset)}")
 
-    
-
-    return train_loader, test_loader
+    return train_loader, test_loader, train_indicies, test_indicies
 
 
 # def initialize_experiment(data_file=None):

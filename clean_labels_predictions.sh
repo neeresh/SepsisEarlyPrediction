@@ -1,0 +1,2 @@
+rm labels/*
+rm predictions/*

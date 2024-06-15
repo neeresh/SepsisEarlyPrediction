@@ -15,10 +15,9 @@ from utils.add_features import *
 class DataSetup:
     def __init__(self):
 
-        self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-                                        'training_setA'),
-                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-                                        'training_setB')]
+        self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setA'),
+                        #    os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setB')
+                           ]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
         self.hdf_path = os.path.join(project_root(), 'data', 'hdf')
@@ -45,7 +44,7 @@ class DataSetup:
         lengths, is_sepsis, all_data, ind = [], [], np.zeros((1552210, 42)), 0  # (num_rows, features)
         training_examples = []
         for i, training_file in enumerate(
-                tqdm.tqdm(training_files, desc="Creating train.pickle, lengths_list, sepsis files",
+                tqdm.tqdm(training_files, desc="Creating train.pickle, lengths_list, is_sepsis files",
                           total=len(training_files))):
             example = pd.read_csv(training_file, sep=',')
             example['PatientID'] = i
@@ -87,7 +86,7 @@ class DataSetup:
                 example.fillna(means, inplace=True)
                 training_examples.append(example)
 
-                example.to_csv(os.path.join(self.destination_path, training_file))
+                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
@@ -98,11 +97,10 @@ class DataSetup:
             medians = all_data.median(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files, desc="Median Imputation", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
-                # example = example.drop(['SepsisLabel'], axis=1)
                 example.fillna(medians, inplace=True)
                 training_examples.append(example)
 
-                example.to_csv(os.path.join(self.destination_path, training_file))
+                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
@@ -116,7 +114,7 @@ class DataSetup:
                 example.fillna(0, inplace=True)
                 training_examples.append(example)
 
-                example.to_csv(os.path.join(self.destination_path, training_file))
+                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
@@ -127,13 +125,12 @@ class DataSetup:
             for training_file in tqdm.tqdm(training_files, desc="Ffill, Bfill, Zeros Imputation",
                                            total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
-                # example = example.drop(['SepsisLabel'], axis=1)
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
                 example.fillna(value=0, inplace=True)
                 training_examples.append(example)
 
-                example.to_csv(os.path.join(self.destination_path, training_file))
+                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
@@ -188,25 +185,29 @@ class DataSetup:
             pickle.dump(training_examples, f)
 
 
-# if __name__ == '__main__':
-#     setup = DataSetup()
-#
-#     # Converts psv to csv
-#     # setup.convert_to_csv()
-#
-#     # Rewriting data
-#     csv_path = os.path.join(project_root(), 'data', 'csv')
-#     training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
-#     training_files.sort()
-#     # setup.rewrite_csv(training_files=training_files)
-#
-#     # Standardising the data and Filling missing values and save csv files back
-#     # data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
-#
-#     # Add features
-#     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', 'training_ffill_bfill_zeros.pickle'))
-#     setup.add_additional_features(data=dataset)
-#
+if __name__ == '__main__':
+
+    setup = DataSetup()
+
+    # Converts psv to csv
+    setup.convert_to_csv()
+
+    # Rewriting data
+    csv_path = os.path.join(project_root(), 'data', 'csv')
+    training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
+    training_files.sort()
+    setup.rewrite_csv(training_files=training_files)
+
+    # Standardising the data and Filling missing values and save csv files back
+    data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
+
+    # Add features
+    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', 'training_ffill_bfill_zeros.pickle'))
+    setup.add_additional_features(data=dataset)
+
+    # Remove unwanted features
+
+
 #     # Adding lag features
 #     # training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file_name))
 #     # setup.add_lag_features(training_examples)

@@ -17,7 +17,7 @@ from utils.loader import make_loader
 from utils.path_utils import project_root
 from utils.plot_metrics import plot_losses_and_accuracies
 
-device = 'mps'
+device = 'cuda'
 
 
 def _setup_destination(current_time):
@@ -160,23 +160,31 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
             "test_accuracy": test_accuracies}
 
 
-def save_model(model):
-    torch.save(model.state_dict(), "model_gtn.pkl")
+def save_model(model, model_name="model_gtn.pkl"):
+    logging.info(f"Saving the model with model_name: {model_name}")
+    torch.save(model.state_dict(), model_name)
+    logging.info(f"Saving successfull!!!")
 
-
-def load_model(model):
-    model.load_state_dict(torch.load("model_gtn.pkl"))
+def load_model(model, model_name="model_gtn.pkl"):
+    print(f"Loading GTN model...")
+    logging.info(f"Loading GTN model...")
+    model.load_state_dict(torch.load(model_name))
+    print(f"Model is set to eval() mode...")
+    logging.info(f"Model is set to eval() mode...")
     model.eval()
+    print(f"Model is on the deivce: {device}")
+    logging.info(f"Model is on the deivce: {device}")
     model.to(device)
 
     return model
 
 
 if __name__ == '__main__':
+
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
-    train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, 128, mode='padding')
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis, 128, mode='padding')
 
     config = gtn_param
     d_input, d_channel, d_output = 336, 63, 2  # (time_steps, features, num_classes)
