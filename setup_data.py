@@ -19,11 +19,6 @@ class DataSetup:
                                         'training_setA'),
                            os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
                                         'training_setB')]
-        
-        # self.data_paths = [os.path.join(project_root(), 'files', 'challenge-2019', '1.0.0', 'training',
-        #                                 'training_setA'),
-        #                    os.path.join(project_root(), 'files', 'challenge-2019', '1.0.0', 'training',
-        #                                 'training_setB')]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
         self.hdf_path = os.path.join(project_root(), 'data', 'hdf')
@@ -159,7 +154,7 @@ class DataSetup:
     def add_additional_features(self, data):
         dataset_name = "final_dataset.pickle"
         training_examples = []
-        for patient_data in tqdm.tqdm(data, desc="Adding additional features", total=len(data)):
+        for patient_id, patient_data in tqdm.tqdm(enumerate(data), desc="Adding additional features", total=len(data)):
             patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
             patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
             patient_data['Platelets_SOFA'] = patient_data['Platelets'].apply(platelets_sofa)
@@ -187,6 +182,8 @@ class DataSetup:
 
             training_examples.append(patient_data)
 
+            patient_data.to_csv(os.path.join(project_root(), 'data', 'test', f"patient_id_{patient_id}.csv"), index=False)
+
         with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
             pickle.dump(training_examples, f)
 
@@ -195,16 +192,16 @@ if __name__ == '__main__':
     setup = DataSetup()
 
     # Converts psv to csv
-    setup.convert_to_csv()
+    # setup.convert_to_csv()
 
     # Rewriting data
     csv_path = os.path.join(project_root(), 'data', 'csv')
     training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
     training_files.sort()
-    setup.rewrite_csv(training_files=training_files)
+    # setup.rewrite_csv(training_files=training_files)
 
     # Standardising the data and Filling missing values and save csv files back
-    data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
+    # data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
 
     # Add features
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', 'training_ffill_bfill_zeros.pickle'))

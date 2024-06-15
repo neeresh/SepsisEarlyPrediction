@@ -20,14 +20,15 @@ class DatasetWithPadding(Dataset):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels = [], []
         max_time_step = max(lengths_list)
-        for patient_data, sepsis in zip(training_examples_list, is_sepsis):
+        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...", total=len(training_examples_list)):
+            patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             pad = (max_time_step - len(patient_data))
-            patient_data = np.pad(patient_data, ((0, pad), (0, 0)), mode='constant')
+            patient_data = np.pad(patient_data, ((0, 0), (pad, 0)), mode='constant')
             data.append(patient_data)
             labels.append(sepsis)
 
-        logging.info(f"Total number of samples after applying window method: ({len(x)})")
-        logging.info(f"Distribution of Sepsis:\n{pd.Series(y).value_counts()}")
+        logging.info(f"Total number of samples after applying window method: ({len(data)})")
+        logging.info(f"Distribution of Sepsis:\n{pd.Series(labels).value_counts()}")
 
         return data, labels
 
@@ -105,7 +106,7 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
     is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
 
     if mode == "window":
-        train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train, window_size=6, step_size=5)
+        train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train, window_size=1, step_size=5)
         test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test, window_size=6, step_size=5)
 
         logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
