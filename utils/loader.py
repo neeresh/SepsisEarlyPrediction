@@ -12,6 +12,14 @@ from torch.utils.data import Dataset, Sampler, DataLoader
 from utils.path_utils import project_root
 
 
+def collate_fn(batch):
+    sequences, labels = zip(*batch)
+    lengths = torch.tensor([len(seq) for seq in sequences])
+    sequences_padded = torch.nn.utils.rnn.pad_sequence(sequences, batch_first=True, padding_value=0)
+    return sequences_padded, lengths, torch.tensor(labels, dtype=torch.long)
+
+    
+
 class DatasetWithPadding(Dataset):
     def __init__(self, training_examples_list, lengths_list, is_sepsis):
         self.data, self.labels = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
@@ -22,9 +30,9 @@ class DatasetWithPadding(Dataset):
         max_time_step = max(lengths_list)
         for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...", total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
-            pad = (max_time_step - len(patient_data))
-            patient_data = np.pad(patient_data, ((0, 0), (pad, 0)), mode='constant')
-            data.append(patient_data)
+            pad = (max_time_step - len(patient_data), 0)
+            patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant')
+            data.append(torch.tensor(patient_data, dtype=torch.float32))
             labels.append(sepsis)
 
         logging.info(f"Total number of samples after applying window method: ({len(data)})")
@@ -108,18 +116,22 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=8, mo
     if mode == "window":
         train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train, window_size=1, step_size=5)
         test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test, window_size=6, step_size=5)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
 
         logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
 
     elif mode == "padding":
         train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train)
         test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test,)
+    
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     logging.info(f"Num of training examples: {len(train_dataset)}")
     logging.info(f"Num of test examples: {len(test_dataset)}")
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    
 
     return train_loader, test_loader
 
