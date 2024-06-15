@@ -188,27 +188,27 @@ class DataSetup:
             pickle.dump(training_examples, f)
 
 
-if __name__ == '__main__':
-    setup = DataSetup()
-
-    # Converts psv to csv
-    # setup.convert_to_csv()
-
-    # Rewriting data
-    csv_path = os.path.join(project_root(), 'data', 'csv')
-    training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
-    training_files.sort()
-    # setup.rewrite_csv(training_files=training_files)
-
-    # Standardising the data and Filling missing values and save csv files back
-    # data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
-
-    # Add features
-    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', 'training_ffill_bfill_zeros.pickle'))
-    setup.add_additional_features(data=dataset)
-
-    # Adding lag features
-    # training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file_name))
-    # setup.add_lag_features(training_examples)
-    # with open(os.path.join(project_root(), 'data', 'processed', data_file_name+'_lag'), 'wb') as f:
-    #     pickle.dump(training_examples, f)
+# if __name__ == '__main__':
+#     setup = DataSetup()
+#
+#     # Converts psv to csv
+#     # setup.convert_to_csv()
+#
+#     # Rewriting data
+#     csv_path = os.path.join(project_root(), 'data', 'csv')
+#     training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
+#     training_files.sort()
+#     # setup.rewrite_csv(training_files=training_files)
+#
+#     # Standardising the data and Filling missing values and save csv files back
+#     # data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
+#
+#     # Add features
+#     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', 'training_ffill_bfill_zeros.pickle'))
+#     setup.add_additional_features(data=dataset)
+#
+#     # Adding lag features
+#     # training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file_name))
+#     # setup.add_lag_features(training_examples)
+#     # with open(os.path.join(project_root(), 'data', 'processed', data_file_name+'_lag'), 'wb') as f:
+#     #     pickle.dump(training_examples, f)

@@ -17,6 +17,8 @@ from utils.loader import make_loader
 from utils.path_utils import project_root
 from utils.plot_metrics import plot_losses_and_accuracies
 
+device = 'mps'
+
 
 def _setup_destination(current_time):
     log_path = os.path.join(project_root(), 'data', 'logs', current_time)
@@ -66,7 +68,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
 
-    device = 'cuda'
     for epoch in range(epochs):
         model.train()
         running_train_loss = 0.0
@@ -166,7 +167,7 @@ def save_model(model):
 def load_model(model):
     model.load_state_dict(torch.load("model_gtn.pkl"))
     model.eval()
-    model.to('cuda')
+    model.to(device)
 
     return model
 
@@ -178,10 +179,8 @@ if __name__ == '__main__':
     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, 128, mode='padding')
 
     config = gtn_param
-    # d_input, d_channel, d_output = 6, 63, 2  # (time_steps (window_size), channels, num_classes)
-    # d_input, d_channel, d_output = 1, 63, 2  # (time_steps (window_size), channels, num_classes)
-    d_input, d_channel, d_output = 336, 63, 2  # (time_steps, channels (features), num_classes)
-    num_epochs = 5
+    d_input, d_channel, d_output = 336, 63, 2  # (time_steps, features, num_classes)
+    num_epochs = 1
 
     logging.info(config)
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
@@ -190,14 +189,15 @@ if __name__ == '__main__':
     model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
                                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                    pe=config['pe'], mask=config['mask'], device='cuda').to('cuda')
+                                    pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    save_path = './data/logs'
     metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
-    # metrics = train_model(model, train_loader, test_loader, epochs=num_epochs, save_path=destination_path)
 
-    train_losses, val_losses, test_losses,  = metrics['train_loss'], metrics['val_loss'], metrics['test_loss']
-    train_accuracies, val_accuracies, test_accuracies = metrics['train_accuracy'], metrics['val_accuracy'], metrics['test_accuracy']
-    
-    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
-    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=destination_path)  # Server
+    train_losses, val_losses, test_losses, = metrics['train_loss'], metrics['val_loss'], metrics['test_loss']
+    train_accuracies, val_accuracies, test_accuracies = metrics['train_accuracy'], metrics['val_accuracy'], metrics[
+        'test_accuracy']
+
+    # save_path = './data/logs'
+    # plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
+    plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
+                               save_path=destination_path)  # Server
