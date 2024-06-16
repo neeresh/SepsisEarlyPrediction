@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from utils.path_utils import project_root
 
 from utils.add_features import *
+from utils.helpers import get_features
 
 
 class DataSetup:
@@ -118,6 +119,28 @@ class DataSetup:
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
+        elif method == 'rolling':
+            dataset_name = 'training_rolling.pickle'
+            print(f"Filling vital featuers using rolling method")
+            print(f"Filling all the other values with the ffill and bfill method")
+
+            # vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
+            vital_features, _, _ = get_features(case=1)
+
+            means = all_data.mean(axis=0, skipna=True)
+            training_examples = []
+            for training_file in tqdm.tqdm(training_files, desc="Filling missing using rolling & bfill(), and means", total=len(training_files)):
+                example = pd.read_csv(training_file, sep=',')
+                for feature in vital_features:
+                    example[feature] = example[feature].rolling(window=6, min_periods=1).mean().bfill()
+                example.fillna(means, inplace=True)
+                training_examples.append(example)
+
+                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
+
+            with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
+                pickle.dump(training_examples, f)
+
         else:
             dataset_name = 'training_ffill_bfill_zeros.pickle'
             print(f"Filling missing values with ffill, bfill, and zeros")
@@ -138,6 +161,7 @@ class DataSetup:
 
     def add_additional_features(self, data):
         dataset_name = "final_dataset.pickle"
+
         training_examples = []
         for patient_id, patient_data in tqdm.tqdm(enumerate(data), desc="Adding additional features", total=len(data)):
             patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
@@ -167,10 +191,44 @@ class DataSetup:
 
             training_examples.append(patient_data)
 
-            # patient_data.to_csv(os.path.join(project_root(), 'data', 'test', f"patient_id_{patient_id}.csv"), index=False)
+        # All added features
+        # added_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
+        #                   'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
+        #                   'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
+        #                   'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs', 'infection_proxy',
+        #                   't_suspicion', 't_sofa', 't_sepsis']
+
+        # Removing t_suspicion, t_sofa, and t_sepsis, infection_proxy
+        added_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
+                          'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
+                          'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
+                          'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs']
 
         with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
             pickle.dump(training_examples, f)
+
+        print(f"add_additional_features() -> Dataset is saved under the name: {dataset_name}")
+
+        return dataset_name, added_features
+
+    def remove_unwanted_features(self, dataset_name, case_num, additional_features):
+        print(f"remove_unwanted_features() -> Using dataset_name: {dataset_name}")
+
+        vital_signs, laboratory_values, demographics = get_features(case=case_num)
+        additional_features = ['SepsisLabel', 'PatientID'] + additional_features
+        final_features = vital_signs + laboratory_values + demographics + additional_features
+
+        print(f"Total number of features: {len(final_features)}")
+
+        dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+        for idx, patient_df in tqdm.tqdm(enumerate(dataset), desc="Removing unwanted features", total=len(dataset)):
+            dataset[idx] = patient_df[final_features]
+
+        filtered_dataset_path = os.path.join(project_root(), 'data', 'processed', 'final_dataset.pickle')
+        with open(filtered_dataset_path, 'wb') as file:
+            pickle.dump(dataset, file)
+
+        print(f"remove_unwanted_features() -> Dataset is saved under the name: {dataset_name}")
 
 
 if __name__ == '__main__':
@@ -187,17 +245,11 @@ if __name__ == '__main__':
     setup.rewrite_csv(training_files=training_files)
 
     # Standardising the data and Filling missing values and save csv files back
-    data_file_name = setup.fill_missing_values(method='None', training_files=training_files)
+    dataset_name = setup.fill_missing_values(method='rolling', training_files=training_files)
 
     # Add features
-    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', 'training_ffill_bfill_zeros.pickle'))
-    setup.add_additional_features(data=dataset)
+    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+    dataset_name, added_features = setup.add_additional_features(data=dataset)
 
     # Remove unwanted features
-
-
-#     # Adding lag features
-#     # training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file_name))
-#     # setup.add_lag_features(training_examples)
-#     # with open(os.path.join(project_root(), 'data', 'processed', data_file_name+'_lag'), 'wb') as f:
-#     #     pickle.dump(training_examples, f)
+    setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
