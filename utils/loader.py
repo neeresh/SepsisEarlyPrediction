@@ -134,29 +134,29 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, num_workers=10, m
     return train_loader, test_loader, train_indicies, test_indicies
 
 
-# def initialize_experiment(data_file=None):
-#
-#     if data_file is not None:
-#         data_file = "training_ffill_bfill_zeros.pickle"
-#     data_file = "final_dataset.pickle"
-#
-#     print(f"Dataset used: {data_file}")
-#
-#     # [[patient1], [patient2], [patient3], ..., [patientN]]
-#     training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
-#
-#     with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
-#         lengths_list = [int(length) for length in f.read().splitlines()]
-#     with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
-#         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
-#
-#     return training_examples, lengths_list, is_sepsis
+def initialize_experiment(data_file=None):
 
-# if __name__ == '__main__':
-#     training_examples, lengths_list, is_sepsis = initialize_experiment()
-#     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
-#
-#     for idx, patient_data in enumerate(train_loader):
-#         if idx==1:
-#             print(patient_data)
-#             break
+    if data_file is not None:
+        data_file = "training_ffill_bfill_zeros.pickle"
+    data_file = "final_dataset.pickle"
+
+    print(f"Dataset used: {data_file}")
+
+    # [[patient1], [patient2], [patient3], ..., [patientN]]
+    training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
+
+    with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
+        lengths_list = [int(length) for length in f.read().splitlines()]
+    with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
+        is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
+
+    return training_examples, lengths_list, is_sepsis
+
+if __name__ == '__main__':
+    training_examples, lengths_list, is_sepsis = initialize_experiment()
+    train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
+
+    for idx, patient_data in enumerate(train_loader):
+        if idx==1:
+            print(patient_data)
+            break

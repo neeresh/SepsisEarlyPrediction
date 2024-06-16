@@ -1,5 +1,4 @@
-
-from setup_data import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
+from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
     respiratory_rate_qsofa, sbp_qsofa, qsofa_score, q_sofa_indicator, sofa_indicator, detect_qsofa_change, \
     mortality_sofa, temp_sirs, heart_rate_sirs, resp_sirs, paco2_sirs, wbc_sirs, t_sofa, t_sepsis
 
@@ -19,7 +18,9 @@ import tqdm
 import numpy as np
 import pandas as pd
 
+
 device = 'cuda'
+
 
 def load_sepsis_model(d_input, d_channel, d_output):
     """
@@ -31,8 +32,9 @@ def load_sepsis_model(d_input, d_channel, d_output):
                                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
-    
+
     return load_model(model)
+
 
 def load_challenge_data(file):
     """
@@ -78,11 +80,12 @@ def t_suspicion(patient_data):
     """
     patient_data['PatientID'] = 0  # Just for groupby operation - created
 
-    patient_data['infection_proxy'] = (patient_data[['Temp_sirs', 'HR_sirs', 'Resp_sirs']].eq(1).sum(axis=1) >= 2).astype(int)
+    patient_data['infection_proxy'] = (
+                patient_data[['Temp_sirs', 'HR_sirs', 'Resp_sirs']].eq(1).sum(axis=1) >= 2).astype(int)
     # t_suspicion is the first hour of (ICULOS) where infection proxy is positive at time t
     patient_data['t_suspicion'] = patient_data.groupby(['PatientID'])['ICULOS'].transform(
         lambda x: x[patient_data['infection_proxy'] == 1].min() if (patient_data['infection_proxy'] == 1).any() else 0)
-    
+
     patient_data = patient_data.drop(['PatientID'], axis=1)  # Just for groupby operation - removed
 
     return patient_data

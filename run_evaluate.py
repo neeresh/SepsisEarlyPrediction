@@ -1,28 +1,28 @@
 import numpy as np
 import pandas as pd
+import torch
 
 from utils.evaluate_helper_methods import *
 from utils.path_utils import project_root
 
 import tqdm
 
-
 d_input, d_channel, d_output = 336, 63, 2
 
-def get_sepsis_score(data, model):
 
+def get_sepsis_score(data, model):
     columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp',
-       'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH', 'PaCO2', 'SaO2', 'AST',
-       'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine',
-       'Bilirubin_direct', 'Glucose', 'Lactate', 'Magnesium', 'Phosphate',
-       'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'PTT', 'WBC',
-       'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2',
-       'HospAdmTime', 'ICULOS']
+               'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH', 'PaCO2', 'SaO2', 'AST',
+               'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine',
+               'Bilirubin_direct', 'Glucose', 'Lactate', 'Magnesium', 'Phosphate',
+               'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'PTT', 'WBC',
+               'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2',
+               'HospAdmTime', 'ICULOS']
 
     # Reformatting data into DataFrame to add features
     patient_data = pd.DataFrame(data, columns=columns)
     patient_data = patient_data.fillna(0)
-    
+
     # patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
     patient_data['MAP_SOFA'] = map_sofa(patient_data['MAP'])
     patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
@@ -48,7 +48,7 @@ def get_sepsis_score(data, model):
     patient_data = t_suspicion(patient_data)
     patient_data = t_sofa(patient_data)
     patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
-    
+
     # Padding remaning rows to meet the model requirements
     # Each patient file will be (336, 63) -> (Timestamps, features)
 
@@ -57,16 +57,15 @@ def get_sepsis_score(data, model):
     num_features = patient_data.shape[1]
     if len(patient_data) < max_rows:
         padding = np.zeros((max_rows - len(patient_data), num_features))
-        patient_data = np.vstack((patient_data.values, padding))
-        
-    elif len(patient_data) > max_rows:
-        patient_data = patient_data.iloc[:max_rows].values
+        patient_data = np.vstack((patient_data.values, padding)).astype(np.float32)
     else:
         patient_data = patient_data.values
 
+    # print(patient_data.shape, type(patient_data))  # <--
+    # print(patient_data)
 
-    patient_data = torch.tensor(patient_data).unsqueeze(0)
-    
+    patient_data = torch.from_numpy(patient_data).unsqueeze(0)
+
     model.eval()
     model.to(device)
     predictions = []
@@ -75,10 +74,10 @@ def get_sepsis_score(data, model):
     with torch.no_grad():
         patient_data = patient_data.to(torch.float32).to(device)
         outputs, _, _, _, _, _, _ = model(patient_data, stage='test')
-    
+
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
-        
+
         predicted_class = predicted.detach().cpu().numpy()[0]
 
         predictions.append(predicted_class)
@@ -86,25 +85,26 @@ def get_sepsis_score(data, model):
 
     return predictions, probas, patient_data
 
-def evaluate():
 
+def evaluate():
     # Gathering Files
     # input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
-    
-    input_directory = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/"
+
+    input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
     # input_directory = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
     output_directory = "./predictions"
 
     # Find files.
     files = []
     for f in os.listdir(input_directory):
-        if os.path.isfile(os.path.join(input_directory, f)) and not f.lower().startswith('.') and f.lower().endswith('psv'):
+        if os.path.isfile(os.path.join(input_directory, f)) and not f.lower().startswith('.') and f.lower().endswith(
+                'psv'):
             files.append(f)
-    
+
     # files.sort()
     if not os.path.isdir(output_directory):
         os.mkdir(output_directory)
-    
+
     # Load Sepsis Model
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output)
 
@@ -122,22 +122,19 @@ def evaluate():
         num_rows = len(data)  # Number of patient recordings
         scores = np.zeros(num_rows)
         labels = np.zeros(num_rows)
-        
+
         for t in range(num_rows):
-            current_data = data[:t+1]
+            current_data = data[:t + 1]
             current_labels, current_score, data_df = get_sepsis_score(current_data, model)
             scores[t] = current_score[0]
             labels[t] = current_labels[0]
-        
+
         output_file = os.path.join(output_directory, f)
         save_challenge_predictions(output_file, scores, labels)
-    
-    return model, data, current_data, data_df
 
-model, data, current_data, data_df = evaluate()
+evaluate()
+
 
 from utils.evaluate_sepsis_score import evaluate_sepsis_score
-
 # Numbers of label and prediction files must be the same
 evaluate_sepsis_score(label_directory='./labels/', prediction_directory='./predictions/')
-

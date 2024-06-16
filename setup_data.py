@@ -136,18 +136,6 @@ class DataSetup:
 
         return dataset_name
 
-    # def add_lag_features(self, training_examples):
-    #     # TODO: Pending
-    #     training_examples_lag = []
-    #     for training_example in tqdm.tqdm(training_examples):
-    #         lag_columns = [column + '_lag' for column in training_example.columns.values[:35]]
-    #         lag_features = training_example.values[:-6, :35] - training_example.values[6: 35]
-    #         training_example = pd.concat([training_example, pd.DataFrame(columns=lag_columns)])
-    #
-    #         training_examples_lag.append(training_example)
-    #
-    #     return training_examples_lag
-
     def add_additional_features(self, data):
         dataset_name = "final_dataset.pickle"
         training_examples = []
@@ -179,7 +167,7 @@ class DataSetup:
 
             training_examples.append(patient_data)
 
-            patient_data.to_csv(os.path.join(project_root(), 'data', 'test', f"patient_id_{patient_id}.csv"), index=False)
+            # patient_data.to_csv(os.path.join(project_root(), 'data', 'test', f"patient_id_{patient_id}.csv"), index=False)
 
         with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
             pickle.dump(training_examples, f)

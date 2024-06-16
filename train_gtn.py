@@ -188,7 +188,7 @@ if __name__ == '__main__':
 
     config = gtn_param
     d_input, d_channel, d_output = 336, 63, 2  # (time_steps, features, num_classes)
-    num_epochs = 1
+    num_epochs = 5
 
     logging.info(config)
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
@@ -205,7 +205,10 @@ if __name__ == '__main__':
     train_accuracies, val_accuracies, test_accuracies = metrics['train_accuracy'], metrics['val_accuracy'], metrics[
         'test_accuracy']
 
-    # save_path = './data/logs'
-    # plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
+    if 'physionet2019' in destination_path:  # When using Unity
+        # Saving in my space
+        save_path = './data/logs'
+        plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
+
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
-                               save_path=destination_path)  # Server
+                               save_path=destination_path)
