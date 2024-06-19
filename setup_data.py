@@ -17,7 +17,7 @@ class DataSetup:
     def __init__(self):
 
         self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setA'),
-                        #    os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setB')
+                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setB')
                            ]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
@@ -192,17 +192,17 @@ class DataSetup:
             training_examples.append(patient_data)
 
         # All added features
-        # added_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
-        #                   'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
-        #                   'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
-        #                   'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs', 'infection_proxy',
-        #                   't_suspicion', 't_sofa', 't_sepsis']
-
-        # Removing t_suspicion, t_sofa, and t_sepsis, infection_proxy
         added_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
                           'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
                           'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
-                          'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs']
+                          'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs', 'infection_proxy',
+                          't_suspicion', 't_sofa', 't_sepsis']
+
+        # Removing t_suspicion, t_sofa, and t_sepsis, infection_proxy
+        # added_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
+        #                   'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
+        #                   'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
+        #                   'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs']
 
         with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
             pickle.dump(training_examples, f)
@@ -245,11 +245,11 @@ if __name__ == '__main__':
     setup.rewrite_csv(training_files=training_files)
 
     # Standardising the data and Filling missing values and save csv files back
-    dataset_name = setup.fill_missing_values(method='rolling', training_files=training_files)
+    dataset_name = setup.fill_missing_values(method='ffill_bfill', training_files=training_files)
 
     # Add features
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
     dataset_name, added_features = setup.add_additional_features(data=dataset)
 
     # Remove unwanted features
-    setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
+    # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)

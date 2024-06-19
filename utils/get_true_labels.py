@@ -9,6 +9,7 @@ def get_true_labels(data_path=None):
 
         print("Dataset is retrieving from...")
         print("/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/")
+        
         data_path = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/"
     
     training_files = [file for file in os.listdir(data_path) if file.endswith('.psv')]

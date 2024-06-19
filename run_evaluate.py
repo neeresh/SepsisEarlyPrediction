@@ -4,10 +4,22 @@ import torch
 
 from utils.evaluate_helper_methods import *
 from utils.path_utils import project_root
+from utils.evaluate_sepsis_score import evaluate_sepsis_score
+from utils.get_true_labels import get_true_labels
+
+from utils.helpers import get_features
 
 import tqdm
 
 d_input, d_channel, d_output = 336, 63, 2
+
+# additional_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
+#                           'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
+#                           'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
+#                           'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs']
+
+# vital_signs, laboratory_values, demographics = get_features(case=1)
+# final_features = vital_signs + laboratory_values + demographics + additional_features
 
 
 def get_sepsis_score(data, model):
@@ -21,6 +33,11 @@ def get_sepsis_score(data, model):
 
     # Reformatting data into DataFrame to add features
     patient_data = pd.DataFrame(data, columns=columns)
+
+    # Handling Missing values
+    # patient_data[vital_signs] = patient_data[vital_signs].rolling(window=6, min_periods=1).mean().bfill()
+    patient_data = patient_data.bfill()
+    patient_data = patient_data.ffill()
     patient_data = patient_data.fillna(0)
 
     # patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
@@ -49,17 +66,16 @@ def get_sepsis_score(data, model):
     patient_data = t_sofa(patient_data)
     patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
 
-    # Padding remaning rows to meet the model requirements
-    # Each patient file will be (336, 63) -> (Timestamps, features)
+    # patient_data = patient_data[final_features]
+    # print(patient_data.shape)
 
-    # 336 rows are padded dynamically based on how each timestamp for each patient
     max_rows = 336
     num_features = patient_data.shape[1]
     if len(patient_data) < max_rows:
         padding = np.zeros((max_rows - len(patient_data), num_features))
         patient_data = np.vstack((patient_data.values, padding)).astype(np.float32)
     else:
-        patient_data = patient_data.values
+        patient_data = patient_data.values.astype(np.float32)
 
     # print(patient_data.shape, type(patient_data))  # <--
     # print(patient_data)
@@ -92,7 +108,7 @@ def evaluate():
 
     input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
     # input_directory = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
-    output_directory = "./predictions"
+    output_directory = "./predictions_weight"
 
     # Find files.
     files = []
@@ -134,7 +150,20 @@ def evaluate():
 
 evaluate()
 
+# Get true labels
+get_true_labels()
 
-from utils.evaluate_sepsis_score import evaluate_sepsis_score
-# Numbers of label and prediction files must be the same
-evaluate_sepsis_score(label_directory='./labels/', prediction_directory='./predictions/')
+# Evaluate true and predicted labels
+
+auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels/', prediction_directory='./predictions/')
+
+print(f"Model's ability to distinguish between positive and negative classes (AUROC): {auroc}")
+print(f"Model's precision-recall trade-off (AUPRC): {auprc}")
+print(f"Model's overall accuracy: {accuracy}")
+print(f"Model's balance between precision and recall (F-measure): {f_measure}")
+print(f"Normalized utility score: {normalized_observed_utility}")
+
+# logging.info(f"Model's ability to distinguish between positive and negative classes (AUROC): {auroc}")
+# logging.info(f"Model's precision-recall trade-off (AUPRC): {auprc}")
+# logging.info(f"Model's overall accuracy: {accuracy}")
+# logging.info(f"Model's balance between precision and recall (F-measure): {f_measure}")

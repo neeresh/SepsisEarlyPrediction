@@ -22,7 +22,7 @@ import pandas as pd
 device = 'cuda'
 
 
-def load_sepsis_model(d_input, d_channel, d_output):
+def load_sepsis_model(d_input, d_channel, d_output, model_name="model_gtn.pkl"):
     """
     Used to load the trained model
     """
@@ -33,7 +33,7 @@ def load_sepsis_model(d_input, d_channel, d_output):
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    return load_model(model)
+    return load_model(model, model_name)
 
 
 def load_challenge_data(file):

@@ -61,8 +61,16 @@ def initialize_experiment(data_file=None):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int,
                 val_loader: Optional[DataLoader] = None):
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    
+    class_0_weight = 40336 / (37404 * 2)  # 37404
+    class_1_weight = 40336 / (2932 * 2)
+    logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
+    manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+
+    # GTN
+    optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN 
+
+    criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=0.1)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
 
     train_losses, val_losses, test_losses = [], [], []
@@ -75,11 +83,13 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
         for inputs, labels in train_loader_tqdm:
-            inputs, labels = inputs.to(device), labels.to(device)
 
             optimizer.zero_grad()
+
+            inputs, labels = inputs.to(device), labels.to(device)
             outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'train')
             loss = criterion(outputs, labels)
+
             loss.backward()
             optimizer.step()
 
@@ -93,8 +103,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
                 "Train Loss": running_train_loss / total_train,
                 "Train Acc": correct_train / total_train
             })
-
-        scheduler.step()
 
         epoch_train_loss = running_train_loss / len(train_loader.dataset)
         epoch_train_accuracy = correct_train / total_train
@@ -145,6 +153,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         test_losses.append(epoch_test_loss)
         test_accuracies.append(epoch_test_accuracy)
 
+        scheduler.step()
+
         message = f"Epoch {epoch + 1}/{epochs} - " \
                   f"Train Loss: {epoch_train_loss:.4f}, Train Acc: {epoch_train_accuracy:.4f}, " \
                   f"Val Loss: {epoch_val_loss}, Val Acc: {epoch_val_accuracy}, " \
@@ -153,7 +163,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model)
+    save_model(model, model_name="model_gtn_b1.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -166,7 +176,7 @@ def save_model(model, model_name="model_gtn.pkl"):
     logging.info(f"Saving successfull!!!")
 
 def load_model(model, model_name="model_gtn.pkl"):
-    print(f"Loading GTN model...")
+    print(f"Loading {model_name} GTN model...")
     logging.info(f"Loading GTN model...")
     model.load_state_dict(torch.load(model_name))
     print(f"Model is set to eval() mode...")
@@ -184,11 +194,14 @@ if __name__ == '__main__':
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis, 128, mode='padding')
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis, 1, mode='padding')
 
     config = gtn_param
-    d_input, d_channel, d_output = 336, 63, 2  # (time_steps, features, num_classes)
-    num_epochs = 5
+    (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
+    print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
+    num_epochs = 2
+
+    print(d_input, d_channel, d_output)
 
     logging.info(config)
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
