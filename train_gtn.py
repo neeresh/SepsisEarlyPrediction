@@ -70,7 +70,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
     # GTN
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN 
 
-    criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=0.1)
+    criterion = nn.CrossEntropyLoss(weight=manual_weights)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
 
     train_losses, val_losses, test_losses = [], [], []
@@ -163,7 +163,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name="model_gtn_b1.pkl")
+    save_model(model, model_name="model_gtn_scaled_b1.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -194,12 +194,12 @@ if __name__ == '__main__':
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis, 1, mode='padding')
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis, 3, mode='padding')
 
     config = gtn_param
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
     print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
-    num_epochs = 2
+    num_epochs = 5
 
     print(d_input, d_channel, d_output)
 

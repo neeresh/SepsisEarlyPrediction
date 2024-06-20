@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import tqdm
 
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from utils.path_utils import project_root
 
@@ -72,8 +72,6 @@ class DataSetup:
 
     def fill_missing_values(self, training_files, method):
 
-        scalar = StandardScaler()
-
         all_data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.csv'))
         all_data = pd.read_csv(all_data_path)
 
@@ -90,6 +88,8 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
+            
+            print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'median':
             dataset_name = 'training_median.pickle'
@@ -104,6 +104,8 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
+            
+            print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'zeros':
             dataset_name = 'training_zeros.pickle'
@@ -118,6 +120,8 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
+            
+            print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'rolling':
             dataset_name = 'training_rolling.pickle'
@@ -140,22 +144,28 @@ class DataSetup:
 
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
+            
+            print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         else:
             dataset_name = 'training_ffill_bfill_zeros.pickle'
             print(f"Filling missing values with ffill, bfill, and zeros")
             training_examples = []
+            means = all_data.mean(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files, desc="Ffill, Bfill, Zeros Imputation",
                                            total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
-                example.fillna(value=0, inplace=True)
+                # example.fillna(value=0, inplace=True)
+                example.fillna(means, inplace=True)
                 training_examples.append(example)
 
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
+            
+            print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         return dataset_name
 
@@ -211,6 +221,34 @@ class DataSetup:
 
         return dataset_name, added_features
 
+    def scale_features(self):
+        dataset_name = 'final_dataset.pickle'
+
+        # Fit using all the data
+        data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', 'final_dataset.pickle'))
+        all_data = pd.read_pickle(data_path)
+        data_concat = pd.concat(all_data)
+
+        # Columns
+        columns_to_scale = data_concat.drop(['SepsisLabel', 'PatientID'], axis=1).columns
+
+        scaler = MinMaxScaler()
+        scaler.fit(data_concat[columns_to_scale])
+
+        # Transform patient-by-patient
+        training_examples = []
+        for example in tqdm.tqdm(all_data, desc="Scaling Features", total=len(all_data)):
+            example[columns_to_scale] = pd.DataFrame(scaler.transform(example[columns_to_scale]))
+            training_examples.append(example)
+
+        with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
+            pickle.dump(training_examples, f)
+        
+        print(f"scale_features() -> Dataset is saved under the name: {dataset_name}")
+
+        return dataset_name
+
+
     def remove_unwanted_features(self, dataset_name, case_num, additional_features):
         print(f"remove_unwanted_features() -> Using dataset_name: {dataset_name}")
 
@@ -244,12 +282,16 @@ if __name__ == '__main__':
     training_files.sort()
     setup.rewrite_csv(training_files=training_files)
 
-    # Standardising the data and Filling missing values and save csv files back
+    # Filling missing values and save csv files back
     dataset_name = setup.fill_missing_values(method='ffill_bfill', training_files=training_files)
 
     # Add features
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
     dataset_name, added_features = setup.add_additional_features(data=dataset)
+
+    # Scaling features
+    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+    dataset_name = setup.scale_features()
 
     # Remove unwanted features
     # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)

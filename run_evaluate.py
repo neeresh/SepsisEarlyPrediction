@@ -108,7 +108,7 @@ def evaluate():
 
     input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
     # input_directory = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
-    output_directory = "./predictions_weight"
+    output_directory = "./predictions"
 
     # Find files.
     files = []
@@ -122,7 +122,7 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output)
+    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name="model_gtn_b1.pkl")
 
     # Iterate over files.
     print('Predicting sepsis labels...')
