@@ -7,7 +7,7 @@ import ray.cloudpickle as pickle
 from torch import optim, nn
 
 from models.gtn import GatedTransformerNetwork
-from remove import get_starters, load_data
+from tuning.custom_dataset import get_starters, load_data
 from utils.config import gtn_param
 
 import tempfile
@@ -18,7 +18,7 @@ train_dataset, val_dataset, test_dataset = load_data(train_indicies, val_indices
 
 
 def train_sepsis(hyperparameters=None):
-    device = "cuda:0"
+    device = "cuda"
 
     # Model
     config = gtn_param
@@ -27,6 +27,12 @@ def train_sepsis(hyperparameters=None):
                                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
+    
+    if torch.cuda.is_available():
+        device = "cuda:0"
+        if torch.cuda.device_count() > 1:
+            model = nn.DataParallel(model)
+    model.to(device)
 
     # Class weights
     class_0_weight = 40336 / (37404 * 2)  # 37404
@@ -79,8 +85,8 @@ def train_sepsis(hyperparameters=None):
             epoch_steps += 1
 
             if i % 2000 == 1999:  # print every 2000 mini-batches
-                print("[%d, %5d] loss: %.3f"% (epoch + 1, i + 1, running_loss / epoch_steps))
-                running_loss = 0.0
+                print("[%d, %5d] loss: %.3f"% (epoch + 1, i + 1, running_train_loss / epoch_steps))
+                running_train_loss = 0.0
 
         # Validation phase
         running_val_loss = 0.0

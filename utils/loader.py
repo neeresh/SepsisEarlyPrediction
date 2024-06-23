@@ -14,7 +14,6 @@ from torch.nn.utils.rnn import pad_sequence
 import torch
 
 
-
 def collate_fn(batch):
     
     # Sequeneces and Lengths
@@ -174,9 +173,25 @@ def get_train_test_indicies():
     return train_indicies, test_indicies
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=10):
+def get_train_val_test_indices():
 
-    train_indicies, test_indicies = get_train_test_indicies()
+    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
+    train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
+
+    train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
+
+    train_indices = train.index.values
+    val_indices = val.index.values
+    test_indices = test.index.values
+
+    return train_indices, val_indices, test_indices
+
+
+def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=10, train_indicies=None, test_indicies=None):
+
+    if train_indicies is None and test_indicies is None:
+        print("Loading from defined indicies")
+        train_indicies, test_indicies = get_train_test_indicies()
 
     train_samples = [examples[idx] for idx in train_indicies]
     test_samples = [examples[idx] for idx in test_indicies]
