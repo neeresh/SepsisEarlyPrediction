@@ -35,8 +35,12 @@ class DatasetWithPadding(Dataset):
 
 
 def get_train_val_test_indices():
-    # is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
-    is_sepsis_file = pd.read_csv('./data/processed/is_sepsis.txt')
+
+    # Reading from in /localscratch
+    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
+
+    # Reading from locally
+    # is_sepsis_file = pd.read_csv('./data/processed/is_sepsis.txt')
 
     train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
     train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
@@ -52,18 +56,20 @@ def initialize_experiment():
     data_file = "final_dataset.pickle"
 
     # [[patient1], [patient2], [patient3], ..., [patientN]]
-    # training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
-    training_examples = pd.read_pickle(f"./data/processed/{data_file}")
+    training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
+    # training_examples = pd.read_pickle(f"./data/processed/{data_file}")
 
-    # with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
-    #     lengths_list = [int(length) for length in f.read().splitlines()]
-    # with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
-    #     is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
-
-    with open(os.path.join('./data/processed/lengths.txt')) as f:
+    # Saving in /localscratch
+    with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
         lengths_list = [int(length) for length in f.read().splitlines()]
-    with open(os.path.join('./data/processed/is_sepsis.txt')) as f:
+    with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
+
+    # Saving Locally
+    # with open(os.path.join('./data/processed/lengths.txt')) as f:
+    #     lengths_list = [int(length) for length in f.read().splitlines()]
+    # with open(os.path.join('./data/processed/is_sepsis.txt')) as f:
+    #     is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
 
     return training_examples, lengths_list, is_sepsis
 

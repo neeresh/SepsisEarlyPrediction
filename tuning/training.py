@@ -105,11 +105,7 @@ def train_sepsis(hyperparameters=None):
                 running_val_loss += loss.item() * inputs.size(0)
                 val_steps += 1
 
-        checkpoint_data = {
-            "epoch": epoch,
-            "net_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-        }
+        checkpoint_data = {"epoch": epoch, "net_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict()}
 
         with tempfile.TemporaryDirectory() as checkpoint_dir:
             data_path = Path(checkpoint_dir) / "data.pkl"

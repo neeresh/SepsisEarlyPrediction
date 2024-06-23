@@ -38,7 +38,8 @@ class DatasetWithPadding(Dataset):
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels = [], []
-        max_time_step = max(lengths_list)
+        # max_time_step = max(lengths_list)
+        max_time_step = 336
         for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...", total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             pad = (max_time_step - len(patient_data), 0)
@@ -135,7 +136,8 @@ class DatasetWithPaddingMasking(Dataset):
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels, masks = [], [], []
-        max_time_step = max(lengths_list)
+        # max_time_step = max(lengths_list)
+        max_time_step = 336
         for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...", total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             pad = (max_time_step - len(patient_data), 0)

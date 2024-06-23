@@ -131,7 +131,7 @@ class DataSetup:
             # vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
             vital_features, _, _ = get_features(case=1)
 
-            means = all_data.mean(axis=0, skipna=True)
+            # means = all_data.mean(axis=0, skipna=True)
             training_examples = []
             for training_file in tqdm.tqdm(training_files, desc="Filling missing using rolling & bfill(), and means", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
@@ -151,14 +151,14 @@ class DataSetup:
             dataset_name = 'training_ffill_bfill_zeros.pickle'
             print(f"Filling missing values with ffill, bfill, and zeros")
             training_examples = []
-            means = all_data.mean(axis=0, skipna=True)
+            # means = all_data.mean(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files, desc="Ffill, Bfill, Zeros Imputation",
                                            total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
-                # example.fillna(value=0, inplace=True)
-                example.fillna(means, inplace=True)
+                example.fillna(value=0, inplace=True)
+                # example.fillna(means, inplace=True)
                 training_examples.append(example)
 
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
