@@ -76,7 +76,7 @@ def t_suspicion(patient_data):
     Since we don't have information about IV antibiotics and blood cultures,
     we are is considering that patient have infection if any 2 SIRS criteria are met
 
-    Minor changes fron the original implementations
+    Minor changes from the original implementations
     """
     patient_data['PatientID'] = 0  # Just for groupby operation - created
 

@@ -131,7 +131,7 @@ class DataSetup:
             # vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
             vital_features, _, _ = get_features(case=1)
 
-            # means = all_data.mean(axis=0, skipna=True)
+            means = all_data.mean(axis=0, skipna=True)
             training_examples = []
             for training_file in tqdm.tqdm(training_files, desc="Filling missing using rolling & bfill(), and means", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
@@ -268,6 +268,10 @@ class DataSetup:
 
         print(f"remove_unwanted_features() -> Dataset is saved under the name: {dataset_name}")
 
+    def save_filtered_data(self, dataset_name):
+        dataset = os.path.join(project_root(), 'data', 'processed', dataset_name)
+        pass
+
 
 if __name__ == '__main__':
 
@@ -289,9 +293,12 @@ if __name__ == '__main__':
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
     dataset_name, added_features = setup.add_additional_features(data=dataset)
 
+    # Filtering (14 timesteps)
+    setup.save_filtered_data()
+
     # Scaling features
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    dataset_name = setup.scale_features()
+    dataset_name = setup.scale_features(dataset_name)
 
     # Remove unwanted features
     # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)

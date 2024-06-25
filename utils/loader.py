@@ -15,14 +15,13 @@ import torch
 
 
 def collate_fn(batch):
-    
     # Sequeneces and Lengths
     sequences, labels = zip(*batch)
     lengths = torch.tensor([len(seq) for seq in sequences])
 
     # Padding
     sequences_padded = torch.nn.utils.rnn.pad_sequence(sequences, batch_first=True, padding_value=0)
-    
+
     # Creating masks
     masks = torch.zeros(sequences_padded.size(0), sequences_padded.size(1), dtype=torch.bool)
     for i, length in enumerate(lengths):
@@ -40,7 +39,8 @@ class DatasetWithPadding(Dataset):
         data, labels = [], []
         # max_time_step = max(lengths_list)
         max_time_step = 336
-        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...", total=len(training_examples_list)):
+        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...",
+                                              total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             pad = (max_time_step - len(patient_data), 0)
             patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
@@ -59,12 +59,13 @@ class DatasetWithPadding(Dataset):
     def __getitem__(self, item):
         return self.data[item], self.labels[item]
 
+
 class DatasetWithWindows(Dataset):
     def __init__(self, training_examples_list, lengths_list, is_sepsis, window_size=6, step_size=6):
         self.window_size = window_size
         self.step_size = step_size
         self.data, self.labels = self._create_dataset(training_examples_list, lengths_list, is_sepsis,
-                                                    window_size, step_size)
+                                                      window_size, step_size)
 
         self.data = torch.tensor(self.data, dtype=torch.float32)
         self.labels = torch.tensor(self.labels, dtype=torch.long)
@@ -80,7 +81,7 @@ class DatasetWithWindows(Dataset):
 
         patients_counter = 0
         for idx, subset in tqdm.tqdm(enumerate(training_examples_list), desc="Creating windows",
-                                    total=len(training_examples_list)):
+                                     total=len(training_examples_list)):
 
             sepsis = subset['SepsisLabel'].values.astype(np.int64)
             patient_data = subset.drop(['SepsisLabel', 'PatientID'], axis=1).values.astype(np.float32)
@@ -95,7 +96,7 @@ class DatasetWithWindows(Dataset):
         x, y = np.array(x), np.array(y)
 
         logging.info(f"Input features ({len(subset.drop(['SepsisLabel', 'PatientID'], axis=1).columns)}): "
-                    f"{subset.drop(['SepsisLabel', 'PatientID'], axis=1).columns}")
+                     f"{subset.drop(['SepsisLabel', 'PatientID'], axis=1).columns}")
         logging.info(f"Total number of samples after applying window method: ({len(x)})")
         logging.info(f"Distribution of sSepsis:\n{pd.Series(y).value_counts()}")
         logging.info(f"Shape of the data: {x.shape}")
@@ -112,7 +113,8 @@ class DefaultDataset(Dataset):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels = [], []
         max_time_step = max(lengths_list)
-        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Retrieving dataset...", total=len(training_examples_list)):
+        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Retrieving dataset...",
+                                              total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             data.append(torch.from_numpy(patient_data.values.astype(np.float32)))
             labels.append(sepsis)
@@ -138,7 +140,8 @@ class DatasetWithPaddingMasking(Dataset):
         data, labels, masks = [], [], []
         # max_time_step = max(lengths_list)
         max_time_step = 336
-        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...", total=len(training_examples_list)):
+        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...",
+                                              total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             pad = (max_time_step - len(patient_data), 0)
             patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
@@ -165,8 +168,9 @@ class DatasetWithPaddingMasking(Dataset):
 
 
 def get_train_test_indicies():
+    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None)
+    assert len(is_sepsis_file) == 40336, f"is_sepsis.txt didn't load properly"
 
-    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
     train, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
 
     train_indicies = train.index.values
@@ -176,8 +180,8 @@ def get_train_test_indicies():
 
 
 def get_train_val_test_indices():
-
-    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
+    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None)
+    assert len(is_sepsis_file) == 40336, f"Check the input and output size"
     train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
 
     train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
@@ -189,7 +193,8 @@ def get_train_val_test_indices():
     return train_indices, val_indices, test_indices
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=10, train_indicies=None, test_indicies=None):
+def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=10,
+                train_indicies=None, test_indicies=None):
 
     if train_indicies is None and test_indicies is None:
         print("Loading from defined indicies")
@@ -205,31 +210,41 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
     is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
 
     if mode == "window":
-        train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train, window_size=8, step_size=6)
-        test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test, window_size=8, step_size=6)
+        train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list,
+                                           is_sepsis=is_sepsis_train, window_size=8, step_size=6)
+        test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list,
+                                          is_sepsis=is_sepsis_test, window_size=8, step_size=6)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
         logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
 
     elif mode == "padding":
-        train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train)
-        test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test,)
-    
+        train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list,
+                                           is_sepsis=is_sepsis_train)
+        test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list,
+                                          is_sepsis=is_sepsis_test, )
+
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    
+
     elif mode == "default":
-        train_dataset = DefaultDataset(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train)
-        test_dataset = DefaultDataset(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test)
-    
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=collate_fn)
-    
+        train_dataset = DefaultDataset(training_examples_list=train_samples, lengths_list=train_lengths_list,
+                                       is_sepsis=is_sepsis_train)
+        test_dataset = DefaultDataset(training_examples_list=test_samples, lengths_list=test_lengths_list,
+                                      is_sepsis=is_sepsis_test)
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers,
+                                  collate_fn=collate_fn)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
+                                 collate_fn=collate_fn)
+
     elif mode == "padding_masking":
-        train_dataset = DatasetWithPaddingMasking(training_examples_list=train_samples, lengths_list=train_lengths_list, is_sepsis=is_sepsis_train)
-        test_dataset = DatasetWithPaddingMasking(training_examples_list=test_samples, lengths_list=test_lengths_list, is_sepsis=is_sepsis_test)
-    
+        train_dataset = DatasetWithPaddingMasking(training_examples_list=train_samples, lengths_list=train_lengths_list,
+                                                  is_sepsis=is_sepsis_train)
+        test_dataset = DatasetWithPaddingMasking(training_examples_list=test_samples, lengths_list=test_lengths_list,
+                                                 is_sepsis=is_sepsis_test)
+
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
@@ -240,7 +255,6 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
 
 
 def initialize_experiment(data_file=None):
-
     if data_file is not None:
         data_file = "training_ffill_bfill_zeros.pickle"
 
@@ -258,11 +272,12 @@ def initialize_experiment(data_file=None):
 
     return training_examples, lengths_list, is_sepsis
 
+
 if __name__ == '__main__':
     training_examples, lengths_list, is_sepsis = initialize_experiment()
     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
 
     for idx, patient_data in enumerate(train_loader):
-        if idx==1:
+        if idx == 1:
             print(patient_data)
             break
