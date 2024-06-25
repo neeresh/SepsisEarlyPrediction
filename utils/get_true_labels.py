@@ -3,17 +3,26 @@ import tqdm
 
 import pandas as pd
 
-def get_true_labels(data_path=None):
 
-    if data_path is None:
+def get_true_labels(custom_files=None):
+    if custom_files is None:
 
         print("Dataset is retrieving from...")
         print("/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/")
-        
+
         data_path = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/"
-    
-    training_files = [file for file in os.listdir(data_path) if file.endswith('.psv')]
-    training_files.sort()
+
+        training_files = [file for file in os.listdir(data_path) if file.endswith('.psv')]
+        training_files.sort()
+
+    else:
+        print("Retrieving specified files...")
+        print(
+            "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/")
+
+        data_path = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/"
+
+        training_files = [file for file in os.listdir(data_path) if file in custom_files]
 
     for i, file in enumerate(tqdm.tqdm(training_files, desc="Storing labels: ", total=len(training_files))):
         try:

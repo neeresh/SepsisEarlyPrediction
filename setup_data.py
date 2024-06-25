@@ -268,9 +268,36 @@ class DataSetup:
 
         print(f"remove_unwanted_features() -> Dataset is saved under the name: {dataset_name}")
 
-    def save_filtered_data(self, dataset_name):
-        dataset = os.path.join(project_root(), 'data', 'processed', dataset_name)
-        pass
+    def extract_timesteps(self, data, sepsis):
+        if sepsis[0]:
+            sepsis_index = data.index[data['SepsisLabel'] == 1][0]
+            start_index = max(0, sepsis_index - 5)
+            end_index = min(len(data), sepsis_index + 9)
+            extracted_data = data.iloc[start_index:end_index]
+        else:
+            extracted_data = data.sample(n=14)
+
+        return extracted_data
+
+    def save_filtered_data(self, dataset, is_sepsis):
+
+        dataset_name = 'final_dataset.pickle'
+        assert len(dataset) == len(is_sepsis), f"{len(dataset)} != {len(is_sepsis)}"
+        print(len(dataset), len(is_sepsis))
+        filtered_data, filtered_sepsis = [], []
+        for data, sepsis in tqdm.tqdm(zip(dataset, is_sepsis), desc="Extracting Time Steps: ", total=len(dataset)):
+            if len(data) >= 14:
+                filtered_data.append(self.extract_timesteps(data, sepsis))
+                filtered_sepsis.append(sepsis[0])
+
+        print(f"Total number of samples after filtering: {len(filtered_data)} and {len(filtered_sepsis)}")
+
+        with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
+            pickle.dump(filtered_data, f)
+
+        with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), 'w') as f:
+            [f.write(f'{l}\n') for l in filtered_sepsis]
+
 
 
 if __name__ == '__main__':
@@ -294,11 +321,13 @@ if __name__ == '__main__':
     dataset_name, added_features = setup.add_additional_features(data=dataset)
 
     # Filtering (14 timesteps)
-    setup.save_filtered_data()
+    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+    is_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None).values
+    setup.save_filtered_data(dataset, is_sepsis)
 
     # Scaling features
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    dataset_name = setup.scale_features(dataset_name)
+    dataset_name = setup.scale_features()
 
     # Remove unwanted features
     # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)

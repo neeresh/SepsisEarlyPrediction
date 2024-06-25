@@ -13,6 +13,7 @@ import tqdm
 
 d_input, d_channel, d_output = 336, 63, 2
 
+
 # additional_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
 #                           'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
 #                           'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
@@ -106,7 +107,8 @@ def evaluate():
     # Gathering Files
     # input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
 
-    input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
+    input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                   'training_setA')
     # input_directory = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
     output_directory = "./predictions"
 
@@ -122,9 +124,10 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name="model_gtn_b1.pkl")
+    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name="temp.pkl")
 
     # Iterate over files.
+    files = files[:100]
     print('Predicting sepsis labels...')
     num_files = len(files)
     for i, f in tqdm.tqdm(enumerate(files), desc="Remaining Files: ", total=num_files):
@@ -148,14 +151,18 @@ def evaluate():
         output_file = os.path.join(output_directory, f)
         save_challenge_predictions(output_file, scores, labels)
 
+    get_true_labels(custom_files=files)
+
+
 evaluate()
 
 # Get true labels
-get_true_labels()
+# get_true_labels()
 
 # Evaluate true and predicted labels
 
-auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels/', prediction_directory='./predictions/')
+auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels/',
+                                                                                       prediction_directory='./predictions/')
 
 print(f"Model's ability to distinguish between positive and negative classes (AUROC): {auroc}")
 print(f"Model's precision-recall trade-off (AUPRC): {auprc}")

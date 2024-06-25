@@ -61,14 +61,13 @@ def initialize_experiment(data_file=None):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int,
                 val_loader: Optional[DataLoader] = None):
-    
     class_0_weight = 40336 / (37404 * 2)  # 37404
     class_1_weight = 40336 / (2932 * 2)
     logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
     manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
 
     # GTN
-    optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN 
+    optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
 
     criterion = nn.CrossEntropyLoss(weight=manual_weights)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
@@ -83,7 +82,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
         for inputs, labels in train_loader_tqdm:
-
             optimizer.zero_grad()
 
             inputs, labels = inputs.to(device), labels.to(device)
@@ -163,7 +161,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name="model_gtn_scaled_b1.pkl")
+    save_model(model, model_name="temp.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -174,6 +172,7 @@ def save_model(model, model_name="model_gtn.pkl"):
     logging.info(f"Saving the model with model_name: {model_name}")
     torch.save(model.state_dict(), model_name)
     logging.info(f"Saving successfull!!!")
+
 
 def load_model(model, model_name="model_gtn.pkl"):
     print(f"Loading {model_name} GTN model...")
@@ -194,7 +193,8 @@ if __name__ == '__main__':
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis, 3, mode='padding')
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+                                                                           32, mode='padding')
 
     config = gtn_param
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
@@ -221,7 +221,8 @@ if __name__ == '__main__':
     if 'physionet2019' in destination_path:  # When using Unity
         # Saving in my space
         save_path = './data/logs'
-        plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies, save_path=save_path)  # Local
+        plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
+                                   save_path=save_path)  # Local
 
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
                                save_path=destination_path)

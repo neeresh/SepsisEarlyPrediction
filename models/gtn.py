@@ -141,3 +141,40 @@ class GatedTransformerNetwork(nn.Module):
         output = self.output_linear(encoding)
 
         return output, encoding, score_input, score_channel, input_to_gather, channel_to_gather, gate
+
+
+    # def forward(self, x, stage):
+    #
+    #     encoding_1 = self.embedding_channel(x)
+    #     input_to_gather = encoding_1
+    #
+    #     if self.pe:
+    #         pe = torch.ones_like(encoding_1[0])
+    #         position = torch.arange(0, self._d_input).unsqueeze(-1)
+    #         temp = torch.Tensor(range(0, self._d_model, 2))
+    #         temp = temp * -(math.log(10000) / self._d_model)
+    #         temp = torch.exp(temp).unsqueeze(0)
+    #         temp = torch.matmul(position.float(), temp)  # shape:[input, d_model/2]
+    #         pe[:, 0::2] = torch.sin(temp)
+    #         pe[:, 1::2] = torch.cos(temp)
+    #
+    #         encoding_1 = encoding_1 + pe
+    #
+    #     for encoder in self.encoder_list_1:
+    #         encoding_1, score_input = encoder(encoding_1, stage)
+    #
+    #     encoding_2 = self.embedding_input(x.transpose(-1, -2))
+    #     channel_to_gather = encoding_2
+    #
+    #     for encoder in self.encoder_list_2:
+    #         encoding_2, score_channel = encoder(encoding_2, stage)
+    #
+    #     encoding_1 = encoding_1.reshape(encoding_1.shape[0], -1)
+    #     encoding_2 = encoding_2.reshape(encoding_2.shape[0], -1)
+    #
+    #     gate = F.softmax(self.gate(torch.cat([encoding_1, encoding_2], dim=-1)), dim=-1)
+    #     encoding = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
+    #
+    #     output = self.output_linear(encoding)
+    #
+    #     return output, encoding, score_input, score_channel, input_to_gather, channel_to_gather, gate
