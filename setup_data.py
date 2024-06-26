@@ -299,7 +299,6 @@ class DataSetup:
             [f.write(f'{l}\n') for l in filtered_sepsis]
 
 
-
 if __name__ == '__main__':
 
     setup = DataSetup()
@@ -320,10 +319,10 @@ if __name__ == '__main__':
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
     dataset_name, added_features = setup.add_additional_features(data=dataset)
 
-    # Filtering (14 timesteps)
-    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    is_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None).values
-    setup.save_filtered_data(dataset, is_sepsis)
+    # # Filtering (14 timesteps)
+    # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+    # is_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None).values
+    # setup.save_filtered_data(dataset, is_sepsis)
 
     # Scaling features
     dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))

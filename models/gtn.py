@@ -108,6 +108,8 @@ class GatedTransformerNetwork(nn.Module):
 
     def forward(self, x, stage):
 
+        batch_size, time_steps, temporal_features = x.shape
+
         encoding_1 = self.embedding_channel(x)
         input_to_gather = encoding_1
 
