@@ -193,7 +193,7 @@ def get_train_val_test_indices():
     return train_indices, val_indices, test_indices
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=10,
+def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=8,
                 train_indicies=None, test_indicies=None):
 
     if train_indicies is None and test_indicies is None:

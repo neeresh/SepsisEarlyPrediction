@@ -16,8 +16,10 @@ from utils.helpers import get_features
 class DataSetup:
     def __init__(self):
 
-        self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setA'),
-                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setB')
+        self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                        'training_setA'),
+                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                        'training_setB')
                            ]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
@@ -88,7 +90,7 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
-            
+
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'median':
@@ -104,7 +106,7 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
-            
+
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'zeros':
@@ -120,7 +122,7 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
-            
+
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'rolling':
@@ -133,7 +135,8 @@ class DataSetup:
 
             means = all_data.mean(axis=0, skipna=True)
             training_examples = []
-            for training_file in tqdm.tqdm(training_files, desc="Filling missing using rolling & bfill(), and means", total=len(training_files)):
+            for training_file in tqdm.tqdm(training_files, desc="Filling missing using rolling & bfill(), and means",
+                                           total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
                 for feature in vital_features:
                     example[feature] = example[feature].rolling(window=6, min_periods=1).mean().bfill()
@@ -144,7 +147,7 @@ class DataSetup:
 
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
-            
+
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         else:
@@ -164,7 +167,7 @@ class DataSetup:
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
-            
+
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         return dataset_name
@@ -243,11 +246,10 @@ class DataSetup:
 
         with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
             pickle.dump(training_examples, f)
-        
+
         print(f"scale_features() -> Dataset is saved under the name: {dataset_name}")
 
         return dataset_name
-
 
     def remove_unwanted_features(self, dataset_name, case_num, additional_features):
         print(f"remove_unwanted_features() -> Using dataset_name: {dataset_name}")
@@ -300,7 +302,6 @@ class DataSetup:
 
 
 if __name__ == '__main__':
-
     setup = DataSetup()
 
     # Converts psv to csv

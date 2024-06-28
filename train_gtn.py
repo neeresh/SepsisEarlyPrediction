@@ -189,7 +189,7 @@ def load_model(model, model_name="model_gtn.pkl"):
 
 
 if __name__ == '__main__':
-
+    print(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)

@@ -25,9 +25,9 @@ def main(num_samples, max_epochs, gpus_per_trial):
         "v": tune.choice([2, 4, 6, 8]),
         "h": tune.choice([2, 4, 6, 8]),
         "N": tune.choice([2, 4, 6, 8]),
-        "dropout": tune.loguniform(0.1, 0.75),
+        "dropout": tune.loguniform(0.05, 0.75),
         "lr": tune.loguniform(1e-4, 1e-1), 
-        "batch_size": tune.choice([2, 4, 8, 16])
+        "batch_size": tune.choice([16, 32, 64])
         }
 
     scheduler = ASHAScheduler(metric="loss", mode="min", max_t=max_epochs, grace_period=1, reduction_factor=2)
@@ -73,4 +73,4 @@ def main(num_samples, max_epochs, gpus_per_trial):
 
 
 if __name__ == "__main__":
-    main(num_samples=50, max_epochs=5, gpus_per_trial=1)
+    main(num_samples=20, max_epochs=5, gpus_per_trial=1)

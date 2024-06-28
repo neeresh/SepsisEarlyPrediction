@@ -46,20 +46,21 @@
 
 import numpy as np, os, os.path, sys, warnings
 
+
 def evaluate_sepsis_score(label_directory, prediction_directory):
     # Set parameters.
-    label_header       = 'SepsisLabel'
-    prediction_header  = 'PredictedLabel'
+    label_header = 'SepsisLabel'
+    prediction_header = 'PredictedLabel'
     probability_header = 'PredictedProbability'
 
-    dt_early   = -12
+    dt_early = -12
     dt_optimal = -6
-    dt_late    = 3
+    dt_late = 3
 
     max_u_tp = 1
     min_u_fn = -2
-    u_fp     = -0.05
-    u_tn     = 0
+    u_fp = -0.05
+    u_tn = 0
 
     # Find label and prediction files.
     label_files = []
@@ -80,14 +81,14 @@ def evaluate_sepsis_score(label_directory, prediction_directory):
         raise Exception('Numbers of label and prediction files must be the same.')
 
     # Load labels and predictions.
-    num_files            = len(label_files)
-    cohort_labels        = []
-    cohort_predictions   = []
+    num_files = len(label_files)
+    cohort_labels = []
+    cohort_predictions = []
     cohort_probabilities = []
 
     for k in range(num_files):
-        labels        = load_column(label_files[k], label_header, '|')
-        predictions   = load_column(prediction_files[k], prediction_header, '|')
+        labels = load_column(label_files[k], label_header, '|')
+        predictions = load_column(prediction_files[k], prediction_header, '|')
         probabilities = load_column(prediction_files[k], probability_header, '|')
 
         # Check labels and predictions for errors.
@@ -111,7 +112,8 @@ def evaluate_sepsis_score(label_directory, prediction_directory):
             max_probability_negative = np.max(probabilities[predictions == 0])
 
             if min_probability_positive <= max_probability_negative:
-                warnings.warn('Predictions are inconsistent with probabilities, i.e., a positive prediction has a lower (or equal) probability than a negative prediction.')
+                warnings.warn(
+                    'Predictions are inconsistent with probabilities, i.e., a positive prediction has a lower (or equal) probability than a negative prediction.')
 
         # Record labels and predictions.
         cohort_labels.append(labels)
@@ -119,45 +121,51 @@ def evaluate_sepsis_score(label_directory, prediction_directory):
         cohort_probabilities.append(probabilities)
 
     # Compute AUC, accuracy, and F-measure.
-    labels        = np.concatenate(cohort_labels)
-    predictions   = np.concatenate(cohort_predictions)
+    labels = np.concatenate(cohort_labels)
+    predictions = np.concatenate(cohort_predictions)
     probabilities = np.concatenate(cohort_probabilities)
 
-    auroc, auprc        = compute_auc(labels, probabilities)
+    auroc, auprc = compute_auc(labels, probabilities)
     accuracy, f_measure = compute_accuracy_f_measure(labels, predictions)
 
     # Compute utility.
     observed_utilities = np.zeros(num_files)
-    best_utilities     = np.zeros(num_files)
-    worst_utilities    = np.zeros(num_files)
+    best_utilities = np.zeros(num_files)
+    worst_utilities = np.zeros(num_files)
     inaction_utilities = np.zeros(num_files)
 
     for k in range(num_files):
         labels = cohort_labels[k]
-        num_rows          = len(labels)
+        num_rows = len(labels)
         observed_predictions = cohort_predictions[k]
-        best_predictions     = np.zeros(num_rows)
-        worst_predictions    = np.zeros(num_rows)
+        best_predictions = np.zeros(num_rows)
+        worst_predictions = np.zeros(num_rows)
         inaction_predictions = np.zeros(num_rows)
 
         if np.any(labels):
             t_sepsis = np.argmax(labels) - dt_optimal
-            best_predictions[max(0, t_sepsis + dt_early) : min(t_sepsis + dt_late + 1, num_rows)] = 1
+            best_predictions[max(0, t_sepsis + dt_early): min(t_sepsis + dt_late + 1, num_rows)] = 1
         worst_predictions = 1 - best_predictions
 
-        observed_utilities[k] = compute_prediction_utility(labels, observed_predictions, dt_early, dt_optimal, dt_late, max_u_tp, min_u_fn, u_fp, u_tn)
-        best_utilities[k]     = compute_prediction_utility(labels, best_predictions, dt_early, dt_optimal, dt_late, max_u_tp, min_u_fn, u_fp, u_tn)
-        worst_utilities[k]    = compute_prediction_utility(labels, worst_predictions, dt_early, dt_optimal, dt_late, max_u_tp, min_u_fn, u_fp, u_tn)
-        inaction_utilities[k] = compute_prediction_utility(labels, inaction_predictions, dt_early, dt_optimal, dt_late, max_u_tp, min_u_fn, u_fp, u_tn)
+        observed_utilities[k] = compute_prediction_utility(labels, observed_predictions, dt_early, dt_optimal, dt_late,
+                                                           max_u_tp, min_u_fn, u_fp, u_tn)
+        best_utilities[k] = compute_prediction_utility(labels, best_predictions, dt_early, dt_optimal, dt_late,
+                                                       max_u_tp, min_u_fn, u_fp, u_tn)
+        worst_utilities[k] = compute_prediction_utility(labels, worst_predictions, dt_early, dt_optimal, dt_late,
+                                                        max_u_tp, min_u_fn, u_fp, u_tn)
+        inaction_utilities[k] = compute_prediction_utility(labels, inaction_predictions, dt_early, dt_optimal, dt_late,
+                                                           max_u_tp, min_u_fn, u_fp, u_tn)
 
     unnormalized_observed_utility = np.sum(observed_utilities)
-    unnormalized_best_utility     = np.sum(best_utilities)
-    unnormalized_worst_utility    = np.sum(worst_utilities)
+    unnormalized_best_utility = np.sum(best_utilities)
+    unnormalized_worst_utility = np.sum(worst_utilities)
     unnormalized_inaction_utility = np.sum(inaction_utilities)
 
-    normalized_observed_utility = (unnormalized_observed_utility - unnormalized_inaction_utility) / (unnormalized_best_utility - unnormalized_inaction_utility)
+    normalized_observed_utility = (unnormalized_observed_utility - unnormalized_inaction_utility) / (
+                unnormalized_best_utility - unnormalized_inaction_utility)
 
     return auroc, auprc, accuracy, f_measure, normalized_observed_utility
+
 
 # The load_column function loads a column from a table.
 #
@@ -182,11 +190,13 @@ def load_column(filename, header, delimiter):
                 try:
                     j = arrs.index(header)
                 except:
-                    raise Exception('{} must contain column with header {} containing numerical entries.'.format(filename, header))
+                    raise Exception(
+                        '{} must contain column with header {} containing numerical entries.'.format(filename, header))
             else:
                 if len(arrs[j]):
                     column.append(float(arrs[j]))
     return np.array(column)
+
 
 # The compute_auc function computes AUROC and AUPRC as well as other summary
 # statistics (TP, FP, FN, TN, TPR, TNR, PPV, NPV, etc.) that can be exposed
@@ -308,11 +318,12 @@ def compute_auc(labels, predictions, check_errors=True):
     # (y-axis).
     auroc = 0
     auprc = 0
-    for j in range(m-1):
+    for j in range(m - 1):
         auroc += 0.5 * (tpr[j + 1] - tpr[j]) * (tnr[j + 1] + tnr[j])
         auprc += (tpr[j + 1] - tpr[j]) * ppv[j + 1]
 
     return auroc, auprc
+
 
 # The compute_accuracy_f_measure function computes the accuracy and F-measure
 # for a patient.
@@ -387,6 +398,7 @@ def compute_accuracy_f_measure(labels, predictions, check_errors=True):
 
     return accuracy, f_measure
 
+
 # The compute_prediction_utility function computes the total time-dependent
 # utility for a patient.
 #
@@ -411,7 +423,8 @@ def compute_accuracy_f_measure(labels, predictions, check_errors=True):
 #   In [4]: utility
 #   Out[4]: 3.388888888888889
 
-def compute_prediction_utility(labels, predictions, dt_early=-12, dt_optimal=-6, dt_late=3.0, max_u_tp=1, min_u_fn=-2, u_fp=-0.05, u_tn=0, check_errors=True):
+def compute_prediction_utility(labels, predictions, dt_early=-12, dt_optimal=-6, dt_late=3.0, max_u_tp=1, min_u_fn=-2,
+                               u_fp=-0.05, u_tn=0, check_errors=True):
     # Check inputs for errors.
     if check_errors:
         if len(predictions) != len(labels):
@@ -476,10 +489,12 @@ def compute_prediction_utility(labels, predictions, dt_early=-12, dt_optimal=-6,
     # Find total utility for patient.
     return np.sum(u)
 
+
 if __name__ == '__main__':
     auroc, auprc, accuracy, f_measure, utility = evaluate_sepsis_score(sys.argv[1], sys.argv[2])
 
-    output_string = 'AUROC|AUPRC|Accuracy|F-measure|Utility\n{}|{}|{}|{}|{}'.format(auroc, auprc, accuracy, f_measure, utility)
+    output_string = 'AUROC|AUPRC|Accuracy|F-measure|Utility\n{}|{}|{}|{}|{}'.format(auroc, auprc, accuracy, f_measure,
+                                                                                    utility)
     if len(sys.argv) > 3:
         with open(sys.argv[3], 'w') as f:
             f.write(output_string)
