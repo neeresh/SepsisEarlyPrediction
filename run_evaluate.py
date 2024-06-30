@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.preprocessing import MinMaxScaler
 
 from utils.evaluate_helper_methods import *
 from utils.path_utils import project_root
@@ -12,7 +13,7 @@ from utils.helpers import get_features
 import tqdm
 
 d_input, d_channel, d_output = 336, 40, 2
-
+scaler = MinMaxScaler()
 
 # additional_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
 #                           'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
@@ -78,9 +79,8 @@ def get_sepsis_score(data, model):
     else:
         patient_data = patient_data.values.astype(np.float32)
 
-    # print(patient_data.shape, type(patient_data))  # <--
-    # print(patient_data)
-
+    # Scaling
+    patient_data = scaler.fit_transform(patient_data)
     patient_data = torch.from_numpy(patient_data).unsqueeze(0)
 
     model.eval()

@@ -33,12 +33,9 @@ def _log(message: str = '{}', value: any = None):
     logging.info(message.format(value))
 
 
-def initialize_experiment(data_file=None):
+def initialize_experiment(data_file):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     destination_path = _setup_destination(current_time)
-
-    if data_file is None:
-        data_file = "training_ffill_bfill_zeros.pickle"
 
     _log(message="Datafile used: {}".format(data_file))
 

@@ -193,11 +193,41 @@ def get_train_val_test_indices():
     return train_indices, val_indices, test_indices
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=8,
-                train_indicies=None, test_indicies=None):
+class DatasetWithPaddingAndLengths(Dataset):
+    def __init__(self, training_examples_list, lengths_list, is_sepsis):
+        self.data, self.labels, self.lengths = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
+
+    def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
+        logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
+        data, labels, lengths = [], [], []
+        max_time_step = 336
+        for patient_data, sepsis, length in tqdm.tqdm(zip(training_examples_list, is_sepsis, lengths_list), desc="Padding...",
+                                              total=len(training_examples_list)):
+            patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+            pad = (max_time_step - len(patient_data), 0)
+            patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
+
+            data.append(torch.from_numpy(patient_data))
+            labels.append(sepsis)
+            lengths.append(length)
+
+        logging.info(f"Total number of samples after applying window method: ({len(data)})")
+        logging.info(f"Distribution of Sepsis:\n{pd.Series(labels).value_counts()}")
+
+        return data, labels, lengths
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, item):
+        return self.data[item], self.labels[item], self.lengths[item]
+
+
+def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=8, train_indicies=None,
+                test_indicies=None):
 
     if train_indicies is None and test_indicies is None:
-        print("Loading from defined indicies")
+        print("Loading from pre-defined indicies")
         train_indicies, test_indicies = get_train_test_indicies()
 
     train_samples = [examples[idx] for idx in train_indicies]
@@ -248,15 +278,24 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
+    elif mode == "padding_and_lengths":
+        train_dataset = DatasetWithPaddingAndLengths(training_examples_list=train_samples, lengths_list=train_lengths_list,
+                                           is_sepsis=is_sepsis_train)
+        test_dataset = DatasetWithPaddingAndLengths(training_examples_list=test_samples, lengths_list=test_lengths_list,
+                                          is_sepsis=is_sepsis_test)
+
+        # If batch_size > 1, iterate max(lengths) times
+        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=num_workers)
+        logging.info(f"Batch size is {batch_size}")
+
     logging.info(f"Num of training examples: {len(train_dataset)}")
     logging.info(f"Num of test examples: {len(test_dataset)}")
 
     return train_loader, test_loader, train_indicies, test_indicies
 
 
-def initialize_experiment(data_file=None):
-    if data_file is not None:
-        data_file = "training_ffill_bfill_zeros.pickle"
+def initialize_experiment(data_file):
 
     data_file = "final_dataset.pickle"
 
@@ -273,11 +312,11 @@ def initialize_experiment(data_file=None):
     return training_examples, lengths_list, is_sepsis
 
 
-if __name__ == '__main__':
-    training_examples, lengths_list, is_sepsis = initialize_experiment()
-    train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
-
-    for idx, patient_data in enumerate(train_loader):
-        if idx == 1:
-            print(patient_data)
-            break
+# if __name__ == '__main__':
+#     training_examples, lengths_list, is_sepsis = initialize_experiment()
+#     train_loader, test_loader = make_loader(training_examples, lengths_list, is_sepsis, batch_size=128)
+#
+#     for idx, patient_data in enumerate(train_loader):
+#         if idx == 1:
+#             print(patient_data)
+#             break

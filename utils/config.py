@@ -12,12 +12,5 @@ transformer_rnn_param = {'input_size': 128, 'hidden_size': 39, 'num_of_heads': 3
                          'dropout': 0.25, 'batch_size': 128, 'lr': 0.001, 'epochs_num': 5, "size_average": True,
                          'to_concat': False, 'clipping': 1.0}
 
-# gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,
-#              'lr': 0.001}
-
-gtn_param = {'d_model': 256, 'd_hidden': 512, 'q': 4, 'v': 4, 'h': 4, 'N': 2, 'dropout': 0.0, 'pe': True, 'mask': True,
-             'lr': 0.0001}
-
-# gtn_param = {'d_model': 256, 'd_hidden': 256, 'q': 4, 'v': 6, 'h':8, 'N': 6, 'dropout': 0.323, 'pe': True, 'mask': True,
-#              'lr': 0.0011548183587624962}
-
+gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,
+             'lr': 0.001}
