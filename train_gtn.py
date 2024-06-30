@@ -59,18 +59,21 @@ def initialize_experiment(data_file=None):
     return training_examples, lengths_list, is_sepsis, writer, destination_path
 
 
-def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int,
-                val_loader: Optional[DataLoader] = None):
-    class_0_weight = 40336 / (37404 * 2)  # 37404
-    class_1_weight = 40336 / (2932 * 2)
-    logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
-    manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
+                class_1_weight=None, val_loader: Optional[DataLoader] = None):
+    if class_0_weight is not None and class_1_weight is not None:
+        print(f"Using manual weights for classes 0 and 1")
+        logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
+        manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+        criterion = nn.CrossEntropyLoss(weight=manual_weights)
+
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     # GTN
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
 
-    criterion = nn.CrossEntropyLoss(weight=manual_weights)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=200)
+    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer)
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
@@ -151,7 +154,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         test_losses.append(epoch_test_loss)
         test_accuracies.append(epoch_test_accuracy)
 
-        scheduler.step()
+        # scheduler.step()
 
         message = f"Epoch {epoch + 1}/{epochs} - " \
                   f"Train Loss: {epoch_train_loss:.4f}, Train Acc: {epoch_train_accuracy:.4f}, " \
@@ -161,7 +164,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name="temp.pkl")
+    save_model(model, model_name="reduced_model.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -189,12 +192,32 @@ def load_model(model, model_name="model_gtn.pkl"):
 
 
 if __name__ == '__main__':
-    print(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
+
+    # Default
+    class_0_weight = 40336 / (37404 * 2)  # 37404
+    class_1_weight = 40336 / (2932 * 2)
     train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           32, mode='padding')
+                                                                           batch_size=16, mode='padding')
+
+    # Reducing the samples to have balanced dataset
+    # class_0_weight = 8543 / (5611 * 2)
+    # class_1_weight = 8543 / (2932 * 2)
+
+    # sepsis = pd.Series(is_sepsis)
+    # positive_sepsis_idxs = sepsis[sepsis == 1].index
+    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.15).index
+    # all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+    #
+    # print(f"Total samples: {len(all_samples)}")
+    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
+    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+    #                                                                        128, 'padding',
+    #                                                                        num_workers=8, train_indicies=train_indicies,
+    #                                                                        test_indicies=test_indicies)
 
     config = gtn_param
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
@@ -211,6 +234,9 @@ if __name__ == '__main__':
                                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
+
+    # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
+    #                       class_1_weight=class_1_weight, epochs=num_epochs)
 
     metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
 

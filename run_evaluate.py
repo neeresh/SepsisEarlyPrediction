@@ -11,7 +11,7 @@ from utils.helpers import get_features
 
 import tqdm
 
-d_input, d_channel, d_output = 336, 63, 2
+d_input, d_channel, d_output = 336, 40, 2
 
 
 # additional_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
@@ -41,31 +41,31 @@ def get_sepsis_score(data, model):
     patient_data = patient_data.ffill()
     patient_data = patient_data.fillna(0)
 
-    # patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
-    patient_data['MAP_SOFA'] = map_sofa(patient_data['MAP'])
-    patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
-    patient_data['Platelets_SOFA'] = patient_data['Platelets'].apply(platelets_sofa)
-    patient_data['SOFA_score'] = patient_data.apply(sofa_score, axis=1)
-    patient_data = detect_sofa_change(patient_data)
-
-    patient_data['ResP_qSOFA'] = patient_data['Resp'].apply(respiratory_rate_qsofa)
-    patient_data['SBP_qSOFA'] = patient_data['SBP'].apply(sbp_qsofa)
-    patient_data['qSOFA_score'] = patient_data.apply(qsofa_score, axis=1)
-    patient_data = detect_qsofa_change(patient_data)
-
-    patient_data['qSOFA_indicator'] = patient_data.apply(q_sofa_indicator, axis=1)  # Sepsis detected
-    patient_data['SOFA_indicator'] = patient_data.apply(sofa_indicator, axis=1)  # Organ Dysfunction occurred
-    patient_data['Mortality_sofa'] = patient_data.apply(mortality_sofa, axis=1)  # Morality rate
-
-    patient_data['Temp_sirs'] = patient_data['Temp'].apply(temp_sirs)
-    patient_data['HR_sirs'] = patient_data['HR'].apply(heart_rate_sirs)
-    patient_data['Resp_sirs'] = patient_data['Resp'].apply(resp_sirs)
-    patient_data['paco2_sirs'] = patient_data['PaCO2'].apply(resp_sirs)
-    patient_data['wbc_sirs'] = patient_data['WBC'].apply(wbc_sirs)
-
-    patient_data = t_suspicion(patient_data)
-    patient_data = t_sofa(patient_data)
-    patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
+    # # patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
+    # patient_data['MAP_SOFA'] = map_sofa(patient_data['MAP'])
+    # patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
+    # patient_data['Platelets_SOFA'] = patient_data['Platelets'].apply(platelets_sofa)
+    # patient_data['SOFA_score'] = patient_data.apply(sofa_score, axis=1)
+    # patient_data = detect_sofa_change(patient_data)
+    #
+    # patient_data['ResP_qSOFA'] = patient_data['Resp'].apply(respiratory_rate_qsofa)
+    # patient_data['SBP_qSOFA'] = patient_data['SBP'].apply(sbp_qsofa)
+    # patient_data['qSOFA_score'] = patient_data.apply(qsofa_score, axis=1)
+    # patient_data = detect_qsofa_change(patient_data)
+    #
+    # patient_data['qSOFA_indicator'] = patient_data.apply(q_sofa_indicator, axis=1)  # Sepsis detected
+    # patient_data['SOFA_indicator'] = patient_data.apply(sofa_indicator, axis=1)  # Organ Dysfunction occurred
+    # patient_data['Mortality_sofa'] = patient_data.apply(mortality_sofa, axis=1)  # Morality rate
+    #
+    # patient_data['Temp_sirs'] = patient_data['Temp'].apply(temp_sirs)
+    # patient_data['HR_sirs'] = patient_data['HR'].apply(heart_rate_sirs)
+    # patient_data['Resp_sirs'] = patient_data['Resp'].apply(resp_sirs)
+    # patient_data['paco2_sirs'] = patient_data['PaCO2'].apply(resp_sirs)
+    # patient_data['wbc_sirs'] = patient_data['WBC'].apply(wbc_sirs)
+    #
+    # patient_data = t_suspicion(patient_data)
+    # patient_data = t_sofa(patient_data)
+    # patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
 
     # patient_data = patient_data[final_features]
     # print(patient_data.shape)
@@ -124,10 +124,10 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name="temp.pkl")
+    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name="reduced_model.pkl")
 
     # Iterate over files.
-    files = files[:100]
+    files = files[:3000]
     print('Predicting sepsis labels...')
     num_files = len(files)
     for i, f in tqdm.tqdm(enumerate(files), desc="Remaining Files: ", total=num_files):

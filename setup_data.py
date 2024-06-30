@@ -224,11 +224,11 @@ class DataSetup:
 
         return dataset_name, added_features
 
-    def scale_features(self):
+    def scale_features(self, dataset):
         dataset_name = 'final_dataset.pickle'
 
         # Fit using all the data
-        data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', 'final_dataset.pickle'))
+        data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', dataset))
         all_data = pd.read_pickle(data_path)
         data_concat = pd.concat(all_data)
 
@@ -317,8 +317,8 @@ if __name__ == '__main__':
     dataset_name = setup.fill_missing_values(method='ffill_bfill', training_files=training_files)
 
     # Add features
-    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    dataset_name, added_features = setup.add_additional_features(data=dataset)
+    # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+    # dataset_name, added_features = setup.add_additional_features(data=dataset)
 
     # # Filtering (14 timesteps)
     # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
@@ -326,8 +326,8 @@ if __name__ == '__main__':
     # setup.save_filtered_data(dataset, is_sepsis)
 
     # Scaling features
-    dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    dataset_name = setup.scale_features()
+    # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
+    dataset_name = setup.scale_features(dataset=dataset_name)
 
     # Remove unwanted features
     # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
