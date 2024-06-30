@@ -1,10 +1,57 @@
+import logging
+
 import torch
 import tqdm
 from torch import nn, optim
 
-from models.modified_gtn import ModifiedGatedTransformerNetwork, save_model, initialize_experiment
+from models.modified_gtn import ModifiedGatedTransformerNetwork, initialize_experiment
 from utils.config import gtn_param
 from utils.loader import make_loader
+
+
+def save_model(model, model_name):
+    logging.info(f"Saving the model with model_name: {model_name}")
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+    torch.save(model.state_dict(), model_name)
+    logging.info(f"Saving successfull!!!")
+
+
+def load_model(model, model_name="model_gtn.pkl"):
+    print(f"Loading {model_name} GTN model...")
+    logging.info(f"Loading GTN model...")
+    model.load_state_dict(torch.load(model_name))
+    print(f"Model is set to eval() mode...")
+    logging.info(f"Model is set to eval() mode...")
+    model.eval()
+    print(f"Model is on the deivce: {device}")
+    logging.info(f"Model is on the deivce: {device}")
+    model.to(device)
+
+    return model
+
+
+def load_model_dataparallel(model, model_name):
+    print(f"Loading {model_name} GTN model...")
+    logging.info(f"Loading GTN model...")
+    state_dict = torch.load(model_name)
+
+    # Handle "module." prefix if necessary
+    new_state_dict = {}
+    for k, v in state_dict.items():
+        new_key = k.replace("module.", "") if k.startswith("module.") else k
+        new_state_dict[new_key] = v
+
+    model.load_state_dict(new_state_dict)
+    print(f"Model is set to eval() mode...")
+    # logging.info(f"Model is set to eval() mode...")
+    model.eval()
+    print(f"Model is on the device: {device}")
+    # logging.info(f"Model is on the device: {device}")
+    model.to(device)
+
+    return model
+
 
 if __name__ == '__main__':
 
@@ -16,16 +63,15 @@ if __name__ == '__main__':
     config = gtn_param
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
     print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
-    num_epochs = 5
 
     print(d_input, d_channel, d_output)
 
     model = ModifiedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                                    d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                                    v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                    pe=config['pe'], mask=config['mask'], device=device).to(device)
+                                            d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                                            v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                                            pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
 
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
     criterion = nn.CrossEntropyLoss()
@@ -33,7 +79,7 @@ if __name__ == '__main__':
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
 
-    epochs = 10
+    epochs = 2
     for epoch in range(epochs):
         model.train()
         running_train_loss = 0.0
@@ -90,4 +136,6 @@ if __name__ == '__main__':
 
         tqdm.tqdm.write(message)
 
-        save_model(model, model_name=f"single_batch_model_{epoch}.pkl")
+        save_model(model, model_name=f"single_batch_without_dataparallel_epoch_{epoch}.pkl")
+
+    save_model(model, model_name=f"single_batch_without_dataparallel.pkl")

@@ -54,26 +54,6 @@ def initialize_experiment(data_file):
     return training_examples, lengths_list, is_sepsis, writer, destination_path
 
 
-def save_model(model, model_name="model_gtn.pkl"):
-    logging.info(f"Saving the model with model_name: {model_name}")
-    torch.save(model.state_dict(), model_name)
-    logging.info(f"Saving successfull!!!")
-
-
-def load_model(model, model_name="model_gtn.pkl"):
-    print(f"Loading {model_name} GTN model...")
-    logging.info(f"Loading GTN model...")
-    model.load_state_dict(torch.load(model_name))
-    print(f"Model is set to eval() mode...")
-    logging.info(f"Model is set to eval() mode...")
-    model.eval()
-    print(f"Model is on the deivce: {device}")
-    logging.info(f"Model is on the deivce: {device}")
-    model.to(device)
-
-    return model
-
-
 class MultiHeadAttention(Module):
     def __init__(self,
                  d_model: int,
@@ -240,7 +220,6 @@ class ModifiedGatedTransformerNetwork(Module):
         return patient_data
 
     def forward(self, x_input, lengths, stage):
-        batch_size, time_steps, channels = x_input.size()
 
         # counter = 0
         # for t in range(1, time_steps+1):

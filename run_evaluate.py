@@ -15,62 +15,28 @@ import tqdm
 d_input, d_channel, d_output = 336, 40, 2
 scaler = MinMaxScaler()
 
-# additional_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
-#                           'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
-#                           'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
-#                           'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs']
-
-# vital_signs, laboratory_values, demographics = get_features(case=1)
-# final_features = vital_signs + laboratory_values + demographics + additional_features
-
 
 def get_sepsis_score(data, model):
-    columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp',
-               'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH', 'PaCO2', 'SaO2', 'AST',
-               'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine',
-               'Bilirubin_direct', 'Glucose', 'Lactate', 'Magnesium', 'Phosphate',
-               'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'PTT', 'WBC',
-               'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2',
-               'HospAdmTime', 'ICULOS']
+
+    columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
+               'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct',
+               'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct',
+               'Hgb', 'PTT', 'WBC', 'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2', 'HospAdmTime',
+               'ICULOS']
 
     # Reformatting data into DataFrame to add features
     patient_data = pd.DataFrame(data, columns=columns)
 
     # Handling Missing values
-    # patient_data[vital_signs] = patient_data[vital_signs].rolling(window=6, min_periods=1).mean().bfill()
     patient_data = patient_data.bfill()
     patient_data = patient_data.ffill()
     patient_data = patient_data.fillna(0)
 
-    # # patient_data['MAP_SOFA'] = patient_data['MAP'].apply(map_sofa)
-    # patient_data['MAP_SOFA'] = map_sofa(patient_data['MAP'])
-    # patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
-    # patient_data['Platelets_SOFA'] = patient_data['Platelets'].apply(platelets_sofa)
-    # patient_data['SOFA_score'] = patient_data.apply(sofa_score, axis=1)
-    # patient_data = detect_sofa_change(patient_data)
-    #
-    # patient_data['ResP_qSOFA'] = patient_data['Resp'].apply(respiratory_rate_qsofa)
-    # patient_data['SBP_qSOFA'] = patient_data['SBP'].apply(sbp_qsofa)
-    # patient_data['qSOFA_score'] = patient_data.apply(qsofa_score, axis=1)
-    # patient_data = detect_qsofa_change(patient_data)
-    #
-    # patient_data['qSOFA_indicator'] = patient_data.apply(q_sofa_indicator, axis=1)  # Sepsis detected
-    # patient_data['SOFA_indicator'] = patient_data.apply(sofa_indicator, axis=1)  # Organ Dysfunction occurred
-    # patient_data['Mortality_sofa'] = patient_data.apply(mortality_sofa, axis=1)  # Morality rate
-    #
-    # patient_data['Temp_sirs'] = patient_data['Temp'].apply(temp_sirs)
-    # patient_data['HR_sirs'] = patient_data['HR'].apply(heart_rate_sirs)
-    # patient_data['Resp_sirs'] = patient_data['Resp'].apply(resp_sirs)
-    # patient_data['paco2_sirs'] = patient_data['PaCO2'].apply(resp_sirs)
-    # patient_data['wbc_sirs'] = patient_data['WBC'].apply(wbc_sirs)
-    #
-    # patient_data = t_suspicion(patient_data)
-    # patient_data = t_sofa(patient_data)
-    # patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
+    # Adding additional features (batch_size, time_steps, 40) -> (batch_size, time_steps, 63)
+    # patient_data = add_additional_features_for_evaluation(patient_data)
 
-    # patient_data = patient_data[final_features]
-    # print(patient_data.shape)
-
+    # Padding extra rows
+    patient_data_length = len(patient_data)
     max_rows = 336
     num_features = patient_data.shape[1]
     if len(patient_data) < max_rows:
@@ -83,6 +49,7 @@ def get_sepsis_score(data, model):
     patient_data = scaler.fit_transform(patient_data)
     patient_data = torch.from_numpy(patient_data).unsqueeze(0)
 
+    # Predictions
     model.eval()
     model.to(device)
     predictions = []
@@ -90,7 +57,7 @@ def get_sepsis_score(data, model):
 
     with torch.no_grad():
         patient_data = patient_data.to(torch.float32).to(device)
-        outputs, _, _, _, _, _, _ = model(patient_data, stage='test')
+        outputs, _, _, _, _, _, _ = model(patient_data, patient_data_length, stage='test')
 
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
@@ -104,12 +71,10 @@ def get_sepsis_score(data, model):
 
 
 def evaluate():
-    # Gathering Files
-    # input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training','training_setA')
 
-    input_directory = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-                                   'training_setA')
-    # input_directory = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
+    # Gathering Files
+    input_directory = os.path.join(project_root(), 'physionet.org', 'files',
+                                   'challenge-2019', '1.0.0', 'training', 'training_setA')
     output_directory = "./predictions"
 
     # Find files.
@@ -124,7 +89,9 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name="reduced_model.pkl")
+    model_path = ("./saved_models/single_batch_model_0.pkl")
+    model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
+                              model="modified")
 
     # Iterate over files.
     files = files[:3000]
