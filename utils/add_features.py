@@ -19,7 +19,7 @@ def platelets_sofa(platelets):
 
 def total_bilirubin_sofa(bilirubin):
     return np.select(
-        condlist=[bilirubin < 1.2, bilirubin <= 1.9, bilirubin <= 5.9, bilirubin <= 11.9],
+        condlist=[bilirubin < 1.2, bilirubin < 2, bilirubin < 6, bilirubin < 12],
         choicelist=[0, 1, 2, 3], default=4)
 
 
@@ -40,6 +40,7 @@ def detect_sofa_change(data, time_window=24):
 def respiratory_rate_qsofa(respiratory_rate):
     # return (respiratory_rate >= 22).astype(int)
     return int(respiratory_rate >= 22)
+
 
 def sbp_qsofa(sbp):
     return int(sbp < 100)
@@ -99,7 +100,7 @@ def paco2_sirs(paco2):
 
 def wbc_sirs(wbc):
     return np.select(
-        condlist=[wbc*1000 < 4000, wbc*1000 > 12000],
+        condlist=[wbc * 1000 < 4000, wbc * 1000 > 12000],
         choicelist=[1, 1], default=0
     )
 
@@ -109,7 +110,8 @@ def t_suspicion(patient_data):
     Since we don't have information about IV antibiotics and blood cultures,
     we are is considering that patient have infection if any 2 SIRS criteria are met
     """
-    patient_data['infection_proxy'] = (patient_data[['Temp_sirs', 'HR_sirs', 'Resp_sirs']].eq(1).sum(axis=1) >= 2).astype(int)
+    patient_data['infection_proxy'] = (
+                patient_data[['Temp_sirs', 'HR_sirs', 'Resp_sirs']].eq(1).sum(axis=1) >= 2).astype(int)
 
     # t_suspicion is the first hour of (ICULOS) where infection proxy is positive at time t
     patient_data['t_suspicion'] = patient_data.groupby(['PatientID'])['ICULOS'].transform(
@@ -132,6 +134,40 @@ def t_sepsis(row):
         return 0
     if row['t_suspicion'] - 24 <= row['t_sofa'] <= row['t_suspicion'] + 12:
         return min(row['t_suspicion'], row['t_sofa'])
+
+
+def hr_news(hr):
+    return np.select(
+        condlist=[(hr <= 40) | (hr >= 131), (hr >= 111) & (hr <= 130),
+                  ((hr >= 41) & (hr <= 50)) | ((hr >= 91) & (hr <= 110))],
+        choicelist=[3, 2, 1], default=0
+    )
+
+
+def temp_news(temp):
+    return np.select(
+        condlist=[(temp <= 35), (temp >= 39.1), ((temp >= 35.1) & (temp <= 36.0)) | ((temp >= 38.1) & (temp <= 39.0))],
+        choicelist=[3, 2, 1], default=0
+    )
+
+
+def resp_news(resp):
+    return np.select(
+        condlist=[(resp <= 8) | (resp >= 25), ((resp >= 21) & (resp < 25)), ((resp >= 9) & (resp <= 11))],
+        choicelist=[3, 2, 1],
+        default=0
+    )
+
+
+def creatinine_news(creatinine):
+    return np.select(
+        condlist=[(creatinine < 1.2), (creatinine < 2), (creatinine < 2.5)],
+        choicelist=[0, 1, 2], default=3
+    )
+
+
+def map_news(map):
+    return (map >= 70).astype(int)
 
 
 if __name__ == '__main__':
@@ -164,5 +200,12 @@ if __name__ == '__main__':
     patient_data = t_suspicion(patient_data)
     patient_data = t_sofa(patient_data)
     patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
+
+    # NEWS - National Early Warning Score
+    patient_data['HR_NEWS'] = hr_news(patient_data['HR'])
+    patient_data['Temp_NEWS'] = temp_news(patient_data['Temp'])
+    patient_data['Resp_NEWS'] = resp_news(patient_data['Resp'])
+    patient_data['Creatinine_NEWS'] = creatinine_news(patient_data['Creatinine'])
+    patient_data['MAP_NEWS'] = map_news(patient_data['MAP'])
 
     print(f"Total number of features: {patient_data.shape[1]}:", patient_data.columns)

@@ -1,11 +1,11 @@
 from models.gtn import GatedTransformerNetwork
 from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
     respiratory_rate_qsofa, sbp_qsofa, qsofa_score, q_sofa_indicator, sofa_indicator, detect_qsofa_change, \
-    mortality_sofa, temp_sirs, heart_rate_sirs, resp_sirs, paco2_sirs, wbc_sirs, t_sofa, t_sepsis
+    mortality_sofa, temp_sirs, heart_rate_sirs, resp_sirs, paco2_sirs, wbc_sirs, t_sofa, t_sepsis, hr_news, resp_news, \
+    temp_news, map_news, creatinine_news
 
 # from train_gtn import GatedTransformerNetwork, load_model, initialize_experiment
 from train_modified_gtn import ModifiedGatedTransformerNetwork
-from models.modified_gtn import load_model, initialize_experiment
 from utils.helpers import get_features
 
 from utils.loader import make_loader
@@ -26,19 +26,35 @@ import pandas as pd
 device = 'cuda'
 
 
-def load_sepsis_model(d_input, d_channel, d_output, model_name="model_gtn.pkl", mode='default'):
+def load_model(model, model_name="model_gtn.pkl"):
+
+    device = 'cpu'
+
+    print(f"Loading {model_name} GTN model...")
+    model.load_state_dict(torch.load(model_name))
+
+    print(f"Model is set to eval() mode...")
+    model.eval()
+
+    print(f"Model is on the deivce: {device}")
+    model.to(device)
+
+    return model
+
+
+def load_sepsis_model(d_input, d_channel, d_output, model_name="model_gtn.pkl", pre_model='default'):
     """
     Used to load the trained model
     """
     config = gtn_param
     d_input, d_channel, d_output = d_input, d_channel, d_output  # (time_steps (window_size), channels, num_classes)
 
-    if mode == 'default':
+    if pre_model == 'default':
         model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
                                         d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                         v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                         pe=config['pe'], mask=config['mask'], device=device).to(device)
-    elif mode == 'modified_gtn':
+    elif pre_model == 'modified_gtn':
         print("Loading modified gtn model")
         model = ModifiedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
                                                 d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
@@ -129,10 +145,17 @@ def add_additional_features_for_evaluation(patient_data):
     patient_data = t_sofa(patient_data)
     patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
 
+    # # NEWS - National Early Warning Score
+    patient_data['HR_NEWS'] = hr_news(patient_data['HR'])
+    patient_data['Temp_NEWS'] = temp_news(patient_data['Temp'])
+    patient_data['Resp_NEWS'] = resp_news(patient_data['Resp'])
+    patient_data['Creatinine_NEWS'] = creatinine_news(patient_data['Creatinine'])
+    patient_data['MAP_NEWS'] = map_news(patient_data['MAP'])
+
     return patient_data
 
 
-def remove_unwanted_features_for_evaluation(patient_data):
+def remove_unwanted_features_for_evaluation(patient_data):  # Check and remove
     additional_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
                            'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
                            'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',

@@ -58,6 +58,7 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
+
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
@@ -88,6 +89,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
             outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'train')
             loss = criterion(outputs, labels)
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
@@ -106,6 +108,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         epoch_train_accuracy = correct_train / total_train
         train_losses.append(epoch_train_loss)
         train_accuracies.append(epoch_train_accuracy)
+
+        save_model(model, model_name=f"./saved_models/gtn/gtn_epoch_{epoch}.pkl")
 
         # Validation phase
         if val_loader:
@@ -161,7 +165,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name="reduced_model.pkl")
+    save_model(model, model_name="./saved_models/gtn/gtn_final_model.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -198,7 +202,7 @@ if __name__ == '__main__':
     class_0_weight = 40336 / (37404 * 2)  # 37404
     class_1_weight = 40336 / (2932 * 2)
     train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=16, mode='padding')
+                                                                           batch_size=128, mode='padding')
 
     # Reducing the samples to have balanced dataset
     # class_0_weight = 8543 / (5611 * 2)
@@ -232,10 +236,10 @@ if __name__ == '__main__':
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
-    #                       class_1_weight=class_1_weight, epochs=num_epochs)
+    metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
+                          class_1_weight=class_1_weight, epochs=num_epochs)
 
-    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    # metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
 
     train_losses, val_losses, test_losses, = metrics['train_loss'], metrics['val_loss'], metrics['test_loss']
     train_accuracies, val_accuracies, test_accuracies = metrics['train_accuracy'], metrics['val_accuracy'], metrics[

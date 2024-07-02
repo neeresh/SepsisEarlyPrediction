@@ -1,57 +1,9 @@
-import pandas as pd
-import datetime
-
-import os
-
-import logging
-
 import math
 
 import torch
 
 import torch.nn.functional as F
-from tensorboardX import SummaryWriter
 from torch.nn import Module, ModuleList
-
-from utils.path_utils import project_root
-
-device = 'cuda'
-
-
-def _setup_destination(current_time):
-    log_path = os.path.join(project_root(), 'data', 'logs', current_time)
-    os.mkdir(log_path)
-    logging.basicConfig(filename=os.path.join(log_path, current_time + '.log'), level=logging.DEBUG)
-
-    return log_path
-
-
-def _log(message: str = '{}', value: any = None):
-    print(message.format(value))
-    logging.info(message.format(value))
-
-
-def initialize_experiment(data_file):
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    destination_path = _setup_destination(current_time)
-
-    _log(message="Datafile used: {}".format(data_file))
-
-    # [[patient1], [patient2], [patient3], ..., [patientN]]
-    training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
-    _log(message="Total number of patients: {}", value=len(training_examples))
-
-    with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
-        lengths_list = [int(length) for length in f.read().splitlines()]
-    _log(message="Min recordings: {} & Max recordings: {}".format(min(lengths_list), max(lengths_list)))
-
-    with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
-        is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
-    _log(message="Distribution of the SepsisLabel: \n{}".format(pd.Series(is_sepsis).value_counts()))
-
-    writer = SummaryWriter(log_dir=os.path.join(project_root(), 'data', 'logs', current_time), comment='')
-
-    return training_examples, lengths_list, is_sepsis, writer, destination_path
 
 
 class MultiHeadAttention(Module):
@@ -204,71 +156,70 @@ class ModifiedGatedTransformerNetwork(Module):
         self.pe = pe
         self._d_input = d_input
         self._d_model = d_model
+        self.d_output = d_output
 
         self.mask = True  # Masking padded rows by default
 
-    def add_paddings(self, patient_data):
-        max_time_step = 336
-        current_length = patient_data.shape[1]  # Adjusted to take the correct dimension
-
-        if current_length < max_time_step:
-            pad_amount = max_time_step - current_length
-            padding = torch.zeros((patient_data.shape[0], pad_amount, patient_data.shape[2]), dtype=patient_data.dtype,
-                                  device=patient_data.device)
-            patient_data = torch.cat((patient_data, padding), dim=1)
-
-        return patient_data
+    def add_paddings(self, x, max_length):
+        batch_size, current_length, channels = x.shape
+        if current_length < max_length:
+            padding = torch.zeros((batch_size, max_length - current_length, channels), dtype=x.dtype, device=x.device)
+            x = torch.cat((x, padding), dim=1)
+        return x
 
     def forward(self, x_input, lengths, stage):
+        batch_size, time_steps, channels = x_input.size()
+        max_time_step = 336  # Define the maximum time steps based on your data
 
-        # counter = 0
-        # for t in range(1, time_steps+1):
-        for t in range(0, lengths):
-            x = x_input[:, :t, :]
-            x = self.add_paddings(x)
+        # Initialize outputs
+        final_outputs = torch.zeros(batch_size, self.d_output, device=x_input.device)
 
-            # Masking
-            if self.mask:
-                padding_mask = (x.sum(dim=-1) != 0)  # (batch_size, time_steps)
-            else:
-                padding_mask = None
+        # Iterate over each sample in the batch
+        for sample_id in range(batch_size):
+            x_input_single, lengths_single = x_input[sample_id].unsqueeze(0), lengths[sample_id]
 
-            # step-wise
-            encoding_1 = self.embedding_channel(x)
-            input_to_gather = encoding_1
+            # Iterate over each time step for the current sample
+            for t in range(lengths_single):
+                x = x_input_single[:, :t + 1, :]  # Select data from the first time step to the current time step
 
-            if self.pe:
-                pe = torch.ones_like(encoding_1[0])
-                position = torch.arange(0, self._d_input).unsqueeze(-1)
-                temp = torch.Tensor(range(0, self._d_model, 2))
-                temp = temp * -(math.log(10000) / self._d_model)
-                temp = torch.exp(temp).unsqueeze(0)
-                temp = torch.matmul(position.float(), temp)  # shape:[input, d_model/2]
-                pe[:, 0::2] = torch.sin(temp)
-                pe[:, 1::2] = torch.cos(temp)
+                # Add padding if necessary
+                x = self.add_paddings(x, max_time_step)
 
-                encoding_1 = encoding_1 + pe
+                # Masking
+                if self.mask:
+                    padding_mask = (x.sum(dim=-1) != 0)  # (batch_size, time_steps)
+                else:
+                    padding_mask = None
 
-            for encoder in self.encoder_list_1:
-                encoding_1, score_input = encoder(encoding_1, stage, padding_mask=padding_mask)
+                # Step-wise encoding
+                encoding_1 = self.embedding_channel(x)
+                if self.pe:
+                    position = torch.arange(0, max_time_step, device=x_input.device).unsqueeze(1)
+                    div_term = torch.exp(torch.arange(0, self._d_model, 2, device=x_input.device) *
+                                         -(math.log(10000.0) / self._d_model))
+                    pe = torch.zeros(max_time_step, self._d_model, device=x_input.device)
+                    pe[:, 0::2] = torch.sin(position * div_term)
+                    pe[:, 1::2] = torch.cos(position * div_term)
+                    encoding_1 += pe
 
-            # channel-wise
-            encoding_2 = self.embedding_input(x.transpose(-1, -2))
-            channel_to_gather = encoding_2
+                for encoder in self.encoder_list_1:
+                    encoding_1, score_input = encoder(encoding_1, stage, padding_mask=padding_mask)
 
-            for encoder in self.encoder_list_2:
-                encoding_2, score_channel = encoder(encoding_2, stage, padding_mask=None)
+                # Channel-wise encoding
+                encoding_2 = self.embedding_input(x.transpose(-1, -2))
+                for encoder in self.encoder_list_2:
+                    encoding_2, score_channel = encoder(encoding_2, stage)
 
-            encoding_1 = encoding_1.reshape(encoding_1.shape[0], -1)
-            encoding_2 = encoding_2.reshape(encoding_2.shape[0], -1)
+                encoding_1 = encoding_1.view(1, -1)
+                encoding_2 = encoding_2.view(1, -1)
 
-            # gate
-            gate = F.softmax(self.gate(torch.cat([encoding_1, encoding_2], dim=-1)), dim=-1)
-            encoding = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
+                # Gate
+                gate = F.softmax(self.gate(torch.cat([encoding_1, encoding_2], dim=-1)), dim=-1)
+                encoding = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
 
-            output = self.output_linear(encoding)  # Last output matters cuz, it sees entire trend
-            # counter = counter + 1
+                output = self.output_linear(encoding)  # Output after processing the entire sequence up to t
 
-        # print(counter)
+            # Storing output after all the time steps are executed
+            final_outputs[sample_id] = output
 
-        return output, encoding, score_input, score_channel, input_to_gather, channel_to_gather, gate
+        return final_outputs, encoding, score_input, score_channel, encoding_1, encoding_2, gate

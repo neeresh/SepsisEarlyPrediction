@@ -2,28 +2,81 @@ import logging
 
 import torch
 import tqdm
+from sklearn.model_selection import train_test_split
 from torch import nn, optim
 
-from models.modified_gtn import ModifiedGatedTransformerNetwork, initialize_experiment
+from models.modified_gtn import ModifiedGatedTransformerNetwork
 from utils.config import gtn_param
 from utils.loader import make_loader
+
+import pandas as pd
+import datetime
+
+import os
+
+import logging
+from utils.path_utils import project_root
+
+
+# from tensorboardX import SummaryWriter
+
+
+def _setup_destination(current_time):
+    log_path = os.path.join(project_root(), 'data', 'logs', current_time)
+    os.mkdir(log_path)
+    logging.basicConfig(filename=os.path.join(log_path, current_time + '.log'), level=logging.DEBUG)
+
+    return log_path
+
+
+def _log(message: str = '{}', value: any = None):
+    print(message.format(value))
+    logging.info(message.format(value))
+
+
+def initialize_experiment(data_file):
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    destination_path = _setup_destination(current_time)
+
+    _log(message="Datafile used: {}".format(data_file))
+
+    # [[patient1], [patient2], [patient3], ..., [patientN]]
+    training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
+    _log(message="Total number of patients: {}", value=len(training_examples))
+
+    with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
+        lengths_list = [int(length) for length in f.read().splitlines()]
+    _log(message="Min recordings: {} & Max recordings: {}".format(min(lengths_list), max(lengths_list)))
+
+    with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
+        is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
+    _log(message="Distribution of the SepsisLabel: \n{}".format(pd.Series(is_sepsis).value_counts()))
+
+    # writer = SummaryWriter(log_dir=os.path.join(project_root(), 'data', 'logs', current_time), comment='')
+
+    return training_examples, lengths_list, is_sepsis
 
 
 def save_model(model, model_name):
     logging.info(f"Saving the model with model_name: {model_name}")
+
     if isinstance(model, torch.nn.DataParallel):
         model = model.module
     torch.save(model.state_dict(), model_name)
+
     logging.info(f"Saving successfull!!!")
 
 
 def load_model(model, model_name="model_gtn.pkl"):
+    device = 'cuda'
     print(f"Loading {model_name} GTN model...")
     logging.info(f"Loading GTN model...")
     model.load_state_dict(torch.load(model_name))
+
     print(f"Model is set to eval() mode...")
     logging.info(f"Model is set to eval() mode...")
     model.eval()
+
     print(f"Model is on the deivce: {device}")
     logging.info(f"Model is on the deivce: {device}")
     model.to(device)
@@ -31,33 +84,31 @@ def load_model(model, model_name="model_gtn.pkl"):
     return model
 
 
-def load_model_dataparallel(model, model_name):
-    print(f"Loading {model_name} GTN model...")
-    logging.info(f"Loading GTN model...")
-    state_dict = torch.load(model_name)
-
-    # Handle "module." prefix if necessary
-    new_state_dict = {}
-    for k, v in state_dict.items():
-        new_key = k.replace("module.", "") if k.startswith("module.") else k
-        new_state_dict[new_key] = v
-
-    model.load_state_dict(new_state_dict)
-    print(f"Model is set to eval() mode...")
-    # logging.info(f"Model is set to eval() mode...")
-    model.eval()
-    print(f"Model is on the device: {device}")
-    # logging.info(f"Model is on the device: {device}")
-    model.to(device)
-
-    return model
-
-
 if __name__ == '__main__':
 
-    training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment('final_dataset.pickle')
+    print(f"Using {torch.cuda.device_count()} GPUs...")
+
+    training_examples, lengths_list, is_sepsis = initialize_experiment('final_dataset.pickle')
+
+    # Case 2: Training on Balanced Dataset - No weights (336, 63, 2)
+    sepsis = pd.Series(is_sepsis)
+    positive_sepsis_idxs = sepsis[sepsis == 1].index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index
+    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+
+    print(f"Total samples: {len(all_samples)}")
+    batch_size = 128 * torch.cuda.device_count()
+    print(f"Batch size: {batch_size}")
+    logging.info(f"Batch size: {batch_size}")
+    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.20, random_state=42)
     train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=1, mode='padding_and_lengths')
+                                                                           batch_size=batch_size, mode='padding_and_lengths',
+                                                                           num_workers=8, train_indicies=train_indicies,
+                                                                           test_indicies=test_indicies)
+    criterion = nn.CrossEntropyLoss()
+
+    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+    #                                                                        batch_size=1024, mode='padding_and_lengths')
 
     device = 'cuda'
     config = gtn_param
@@ -71,30 +122,40 @@ if __name__ == '__main__':
                                             v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                             pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    # model = nn.DataParallel(model)
+    model = nn.DataParallel(model)
 
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
-    criterion = nn.CrossEntropyLoss()
+
+    # # Case 1: Weighted GTN (Training on Entire Dataset)
+    # class_0_weight = 40336 / (37404 * 2)  # 37404
+    # class_1_weight = 40336 / (2932 * 2)
+    # manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+    # criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
 
-    epochs = 2
+    epochs = 5
     for epoch in range(epochs):
         model.train()
         running_train_loss = 0.0
         correct_train, total_train = 0, 0
-        train_loader_tqdm = tqdm.tqdm(enumerate(train_loader), desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
+
+        train_loader_tqdm = tqdm.tqdm(
+            enumerate(train_loader), desc=f"Epoch {epoch + 1}/{epochs}", unit="batch", total=len(train_loader))
+
         for idx, (inputs, labels, lengths) in train_loader_tqdm:
             inputs, labels = inputs.to(device), labels.to(device)
             outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), lengths, 'train')
 
             loss = criterion(outputs, labels)
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             running_train_loss += loss.item() * inputs.size(0)
+
             _, predicted = torch.max(outputs, 1)
             total_train += labels.size(0)
             correct_train += (predicted == labels).sum().item()
@@ -136,6 +197,6 @@ if __name__ == '__main__':
 
         tqdm.tqdm.write(message)
 
-        save_model(model, model_name=f"single_batch_without_dataparallel_epoch_{epoch}.pkl")
+        save_model(model, model_name=f"balanced_gtn_{epoch}.pkl")
 
-    save_model(model, model_name=f"single_batch_without_dataparallel.pkl")
+    save_model(model, model_name=f"balanced_gtn_final.pkl")

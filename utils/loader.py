@@ -284,9 +284,8 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         test_dataset = DatasetWithPaddingAndLengths(training_examples_list=test_samples, lengths_list=test_lengths_list,
                                           is_sepsis=is_sepsis_test)
 
-        # If batch_size > 1, iterate max(lengths) times
-        train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False, num_workers=num_workers)
-        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=num_workers)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         logging.info(f"Batch size is {batch_size}")
 
     logging.info(f"Num of training examples: {len(train_dataset)}")
@@ -306,6 +305,7 @@ def initialize_experiment(data_file):
 
     with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
         lengths_list = [int(length) for length in f.read().splitlines()]
+
     with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
 

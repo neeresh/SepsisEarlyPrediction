@@ -1,3 +1,5 @@
+from itertools import chain
+
 import os
 import pickle
 
@@ -59,9 +61,8 @@ class DataSetup:
             all_data[ind: ind + len(example), :] = example.values
             ind += len(example)
 
-        all_data = pd.DataFrame(all_data, columns=example.columns.values, index=None)
-        all_data.to_hdf(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.hdf'), key='df')
-        all_data.to_csv(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.csv'), index=False)
+        # all_data = pd.DataFrame(all_data, columns=example.columns.values, index=None)
+        # all_data.to_csv(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.csv'), index=False)
 
         with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt'), 'w') as f:
             [f.write(f'{l}\n') for l in lengths]
@@ -69,15 +70,16 @@ class DataSetup:
         with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), 'w') as f:
             [f.write(f'{l}\n') for l in is_sepsis]
 
-        with open(os.path.join(project_root(), 'data', 'processed', 'training_raw.pickle'), 'wb') as f:
-            pickle.dump(training_examples, f)
+        # with open(os.path.join(project_root(), 'data', 'processed', 'final_dataset.pickle'), 'wb') as f:
+        #     pickle.dump(training_examples, f)
 
-    def fill_missing_values(self, training_files, method):
+    def fill_missing_values(self, pickle_file, method):
 
-        all_data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.csv'))
-        all_data = pd.read_csv(all_data_path)
+        training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
 
         if method == 'mean':
+            all_data = pd.concat(training_files)
+
             dataset_name = 'training_mean.pickle'
             print(f"Filling missing values with mean")
             training_examples = []
@@ -94,6 +96,8 @@ class DataSetup:
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'median':
+            all_data = pd.concat(training_files)
+
             dataset_name = 'training_median.pickle'
             print(f"Filling missing values with median")
             training_examples = []
@@ -126,6 +130,8 @@ class DataSetup:
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
 
         elif method == 'rolling':
+            all_data = pd.concat(training_files)
+
             dataset_name = 'training_rolling.pickle'
             print(f"Filling vital featuers using rolling method")
             print(f"Filling all the other values with the ffill and bfill method")
@@ -154,14 +160,12 @@ class DataSetup:
             dataset_name = 'training_ffill_bfill_zeros.pickle'
             print(f"Filling missing values with ffill, bfill, and zeros")
             training_examples = []
-            # means = all_data.mean(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files, desc="Ffill, Bfill, Zeros Imputation",
                                            total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
                 example.fillna(value=0, inplace=True)
-                # example.fillna(means, inplace=True)
                 training_examples.append(example)
 
                 example.to_csv(os.path.join(self.destination_path, training_file), index=False)
@@ -172,8 +176,9 @@ class DataSetup:
 
         return dataset_name
 
-    def add_additional_features(self, data):
-        dataset_name = "final_dataset.pickle"
+    def add_additional_features(self, pickle_file):
+
+        data = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
 
         training_examples = []
         for patient_id, patient_data in tqdm.tqdm(enumerate(data), desc="Adding additional features", total=len(data)):
@@ -202,6 +207,13 @@ class DataSetup:
             patient_data = t_sofa(patient_data)
             patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
 
+            # NEWS - National Early Warning Score
+            patient_data['HR_NEWS'] = hr_news(patient_data['HR'])
+            patient_data['Temp_NEWS'] = temp_news(patient_data['Temp'])
+            patient_data['Resp_NEWS'] = resp_news(patient_data['Resp'])
+            patient_data['Creatinine_NEWS'] = creatinine_news(patient_data['Creatinine'])
+            patient_data['MAP_NEWS'] = map_news(patient_data['MAP'])
+
             training_examples.append(patient_data)
 
         # All added features
@@ -209,7 +221,8 @@ class DataSetup:
                           'SOFA_deterioration', 'ResP_qSOFA', 'SBP_qSOFA', 'qSOFA_score', 'qSOFA_score_diff',
                           'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
                           'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs', 'infection_proxy',
-                          't_suspicion', 't_sofa', 't_sepsis']
+                          't_suspicion', 't_sofa', 't_sepsis', 'HR_NEWS', 'Temp_NEWS', 'Resp_NEWS', 'Creatinine_NEWS',
+                          'MAP_NEWS']
 
         # Removing t_suspicion, t_sofa, and t_sepsis, infection_proxy
         # added_features = ['MAP_SOFA', 'Bilirubin_total_SOFA', 'Platelets_SOFA', 'SOFA_score', 'SOFA_score_diff',
@@ -217,39 +230,42 @@ class DataSetup:
         #                   'qSOFA_deterioration', 'qSOFA_indicator', 'SOFA_indicator', 'Mortality_sofa',
         #                   'Temp_sirs', 'HR_sirs', 'Resp_sirs', 'paco2_sirs', 'wbc_sirs']
 
-        with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
+        saved_as = "final_dataset.pickle"
+        with open(os.path.join(project_root(), 'data', 'processed', saved_as), 'wb') as f:
             pickle.dump(training_examples, f)
 
-        print(f"add_additional_features() -> Dataset is saved under the name: {dataset_name}")
+        print(f"add_additional_features() -> Dataset is saved under the name: {saved_as}")
 
-        return dataset_name, added_features
+        return saved_as, added_features
 
-    def scale_features(self, dataset):
-        dataset_name = 'final_dataset.pickle'
+    def scale_features(self, pickle_file):
+
+        dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
 
         # Fit using all the data
-        data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', dataset))
-        all_data = pd.read_pickle(data_path)
-        data_concat = pd.concat(all_data)
+        # data_path = os.path.join(os.path.join(project_root(), 'data', 'processed', dataset))
+        # all_data = pd.read_pickle(data_path)
+        data_concat = pd.concat(dataset)
 
         # Columns
         columns_to_scale = data_concat.drop(['SepsisLabel', 'PatientID'], axis=1).columns
 
-        scaler = MinMaxScaler()
+        scaler = StandardScaler()
         scaler.fit(data_concat[columns_to_scale])
 
         # Transform patient-by-patient
         training_examples = []
-        for example in tqdm.tqdm(all_data, desc="Scaling Features", total=len(all_data)):
+        for example in tqdm.tqdm(dataset, desc="Scaling Features", total=len(dataset)):
             example[columns_to_scale] = pd.DataFrame(scaler.transform(example[columns_to_scale]))
             training_examples.append(example)
 
-        with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
+        saved_as = 'final_dataset.pickle'
+        with open(os.path.join(project_root(), 'data', 'processed', saved_as), 'wb') as f:
             pickle.dump(training_examples, f)
 
-        print(f"scale_features() -> Dataset is saved under the name: {dataset_name}")
+        print(f"scale_features() -> Dataset is saved under the name: {saved_as}")
 
-        return dataset_name
+        return saved_as
 
     def remove_unwanted_features(self, dataset_name, case_num, additional_features):
         print(f"remove_unwanted_features() -> Using dataset_name: {dataset_name}")
@@ -300,25 +316,229 @@ class DataSetup:
         with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), 'w') as f:
             [f.write(f'{l}\n') for l in filtered_sepsis]
 
+    def feature_slide_window(self, temp, con_index):
+
+        sepdata = temp[:, con_index]
+        max_values = [[0 for col in range(len(sepdata))]
+                      for row in range(len(con_index))]
+        min_values = [[0 for col in range(len(sepdata))]
+                      for row in range(len(con_index))]
+        mean_values = [[0 for col in range(len(sepdata))]
+                       for row in range(len(con_index))]
+        median_values = [[0 for col in range(len(sepdata))]
+                         for row in range(len(con_index))]
+        std_values = [[0 for col in range(len(sepdata))]
+                      for row in range(len(con_index))]
+        diff_std_values = [[0 for col in range(len(sepdata))]
+                           for row in range(len(con_index))]
+
+        for i in range(len(sepdata)):
+            if i < 6:
+                win_data = sepdata[0:i + 1]
+                for ii in range(6 - i):
+                    win_data = np.row_stack((win_data, sepdata[i]))
+            else:
+                win_data = sepdata[i - 6: i + 1]
+
+            for j in range(len(con_index)):
+                dat = win_data[:, j]
+                if len(np.where(~np.isnan(dat))[0]) == 0:
+                    max_values[j][i] = np.nan
+                    min_values[j][i] = np.nan
+                    mean_values[j][i] = np.nan
+                    median_values[j][i] = np.nan
+                    std_values[j][i] = np.nan
+                    diff_std_values[j][i] = np.nan
+                else:
+                    max_values[j][i] = np.nanmax(dat)
+                    min_values[j][i] = np.nanmin(dat)
+                    mean_values[j][i] = np.nanmean(dat)
+                    median_values[j][i] = np.nanmedian(dat)
+                    std_values[j][i] = np.nanstd(dat)
+                    diff_std_values[j][i] = np.std(np.diff(dat))
+
+        win_features = list(chain(max_values, min_values, mean_values,
+                                  median_values, std_values, diff_std_values))
+        win_features = (np.array(win_features)).T
+
+        return win_features
+
+    def add_sliding_features_for_vital_signs(self, pickle_file):
+
+        training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
+
+        vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
+        vital_signs_idxs = [0, 1, 2, 3, 4, 5, 6, 7]
+
+        stats = ['max', 'min', 'mean', 'median', 'std', 'diff_std']
+
+        # New columns names
+        new_columns = []
+        for col in vital_signs:
+            for stat in stats:
+                new_columns.append(f"{col}_{stat}")
+
+        assert 6 * len(vital_signs) == len(new_columns), (
+            f"Incorrect number of columns created: {6 * len(vital_signs)} "
+            f"and {len(new_columns)}")
+
+        training_examples = []
+        for training_file in tqdm.tqdm(training_files, desc="Creating vital window features",
+                                       total=len(training_files)):
+            example = pd.read_csv(training_file, sep=',')
+            temp_example = self.feature_slide_window(example.values, vital_signs_idxs)
+            temp_example = pd.DataFrame(temp_example, columns=new_columns)
+
+            training_examples.append(pd.concat([example, temp_example], axis=1))
+
+        saved_as = "final_dataset.pickle"
+        with open(os.path.join(project_root(), 'data', 'processed', saved_as), 'wb') as f:
+            pickle.dump(training_examples, f)
+
+        print(f"add_sliding_features_for_vital_signs() -> Dataset is saved under the name: {saved_as}")
+
+        return saved_as
+
+    def feature_informative_missingness(self, case, sep_columns):
+
+        temp_data = case.to_numpy()
+        column_names = list(case.columns)
+
+        for sep_column in sep_columns:
+            sep_data = case[sep_column].to_numpy()
+            nan_pos = np.where(~np.isnan(sep_data))[0]
+
+            # Measurement frequency sequence
+            interval_f1 = sep_data.copy()
+            interval_f1_name = f"interval_f1_{sep_column}"
+            if len(nan_pos) == 0:
+                interval_f1[:] = 0
+            else:
+                interval_f1[: nan_pos[0]] = 0
+                for p in range(len(nan_pos) - 1):
+                    interval_f1[nan_pos[p]: nan_pos[p + 1]] = p + 1
+                interval_f1[nan_pos[-1]:] = len(nan_pos)
+
+            temp_data = np.column_stack((temp_data, interval_f1))
+            column_names.append(interval_f1_name)
+
+            # Measurement time interval
+            interval_f2 = sep_data.copy()
+            interval_f2_name = f"interval_f2_{sep_column}"
+            if len(nan_pos) == 0:
+                interval_f2[:] = -1
+            else:
+                interval_f2[:nan_pos[0]] = -1
+                for q in range(len(nan_pos) - 1):
+                    length = nan_pos[q + 1] - nan_pos[q]
+                    for l in range(length):
+                        interval_f2[nan_pos[q] + l] = l
+
+                length = len(case) - nan_pos[-1]
+                for l in range(length):
+                    interval_f2[nan_pos[-1] + l] = l
+
+            temp_data = np.column_stack((temp_data, interval_f2))
+            column_names.append(interval_f2_name)
+
+            # Differential features
+            diff_f = sep_data.copy()
+            diff_f = diff_f.astype(float)
+            diff_f_name = f"diff_f_{sep_column}"
+            if len(nan_pos) <= 1:
+                diff_f[:] = np.NaN
+            else:
+                diff_f[:nan_pos[1]] = np.NaN
+                for p in range(1, len(nan_pos) - 1):
+                    diff_f[nan_pos[p]: nan_pos[p + 1]] = sep_data[nan_pos[p]] - sep_data[nan_pos[p - 1]]
+                diff_f[nan_pos[-1]:] = sep_data[nan_pos[-1]] - sep_data[nan_pos[-2]]
+
+            temp_data = np.column_stack((temp_data, diff_f))
+            column_names.append(diff_f_name)
+
+        patient_data = pd.DataFrame(temp_data, columns=column_names)
+
+        return patient_data
+
+    def add_feature_informative_missingness(self, training_files):
+
+        vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
+        laboratory_values = ['BaseExcess', 'HCO3', 'FiO2', 'pH', 'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos',
+                             'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct', 'Glucose', 'Lactate',
+                             'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb',
+                             'PTT', 'WBC', 'Fibrinogen', 'Platelets']
+
+        training_examples = []
+        for training_file in tqdm.tqdm(training_files, desc="Adding Feature Informative Missingness",
+                                       total=len(training_files)):
+            sepsis_label = training_file['Sepsis_label']
+            added_missingness = self.feature_informative_missingness(training_file.drop(['SepsisLabel'], axis=1),
+                                                                     vital_signs + laboratory_values)
+
+            training_file = pd.concat([added_missingness, sepsis_label], axis=1)
+            training_examples.append(training_file)
+
+        save_as = "final_dataset.pickle"
+        with open(os.path.join(project_root(), 'data', 'processed', save_as), 'wb') as f:
+            pickle.dump(training_examples, f)
+
+        print(f"add_feature_informative_missingness() -> Dataset is saved under the name: {save_as}")
+
+        return save_as
+
+    def convert_csv_to_psv(self, pickle_file):
+        """
+        For testing
+        """
+
+        # To test only training_setA, edit evaluation code files to [:20336]
+        training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
+
+        csv_path = os.path.join(project_root(), 'data', 'csv')
+        file_names = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
+        file_names.sort()
+
+        destination_path = os.path.join(project_root(), 'data', 'test_data')
+
+        for i, (patient_data, file_name) in enumerate(
+                tqdm.tqdm(zip(training_files, file_names), desc="Converting CSV to PSV",
+                          total=len(training_files))):
+
+            patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+            psv_file_name = file_name.replace('.csv', '.psv')
+            patient_data.to_csv(os.path.join(destination_path, psv_file_name), sep='|', index=False)
+
 
 if __name__ == '__main__':
+
     setup = DataSetup()
 
     # Converts psv to csv
+    # Output: All psv files to csv files
     setup.convert_to_csv()
 
     # Rewriting data
+    # Output: lengths.txt, is_sepsis.txt
     csv_path = os.path.join(project_root(), 'data', 'csv')
     training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
     training_files.sort()
     setup.rewrite_csv(training_files=training_files)
 
-    # Filling missing values and save csv files back
-    dataset_name = setup.fill_missing_values(method='ffill_bfill', training_files=training_files)
+    # Add Feature Informative Missingness
+    # Output: final_dataset.pickle
+    final_dataset_pickle = setup.add_feature_informative_missingness(training_files=training_files)
 
-    # Add features
-    # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    # dataset_name, added_features = setup.add_additional_features(data=dataset)
+    # Filling missing values and save csv files back
+    # Output: training_ffill_bfill_zeros.pickle
+    saved_as = setup.fill_missing_values(method='ffill_bfill', pickle_file=final_dataset_pickle)
+
+    # Sliding window features for vital signs
+    # Output: final_dataset.pickle
+    saved_as = setup.add_sliding_features_for_vital_signs(pickle_file=saved_as)
+
+    # Add features - Scores
+    # Output: final_dataset.pickle
+    saved_as, added_features = setup.add_additional_features(pickle_file=saved_as)
 
     # # Filtering (14 timesteps)
     # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
@@ -326,8 +546,11 @@ if __name__ == '__main__':
     # setup.save_filtered_data(dataset, is_sepsis)
 
     # Scaling features
-    # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
-    dataset_name = setup.scale_features(dataset=dataset_name)
+    # Output: final_dataset.pickle
+    saved_as = setup.scale_features(pickle_file=saved_as)
 
     # Remove unwanted features
     # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
+
+    # Convert all files to psv in test folder (for evaluation)
+    setup.convert_csv_to_psv(pickle_file=saved_as)

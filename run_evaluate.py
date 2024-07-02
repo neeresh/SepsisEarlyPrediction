@@ -12,7 +12,7 @@ from utils.helpers import get_features
 
 import tqdm
 
-d_input, d_channel, d_output = 336, 40, 2
+d_input, d_channel, d_output = 336, 63, 2
 scaler = MinMaxScaler()
 
 
@@ -33,10 +33,10 @@ def get_sepsis_score(data, model):
     patient_data = patient_data.fillna(0)
 
     # Adding additional features (batch_size, time_steps, 40) -> (batch_size, time_steps, 63)
-    # patient_data = add_additional_features_for_evaluation(patient_data)
+    patient_data = add_additional_features_for_evaluation(patient_data)
 
     # Padding extra rows
-    patient_data_length = len(patient_data)
+    patient_data_length = [len(patient_data)]
     max_rows = 336
     num_features = patient_data.shape[1]
     if len(patient_data) < max_rows:
@@ -75,7 +75,7 @@ def evaluate():
     # Gathering Files
     input_directory = os.path.join(project_root(), 'physionet.org', 'files',
                                    'challenge-2019', '1.0.0', 'training', 'training_setA')
-    output_directory = "./predictions"
+    output_directory = "./predictions_weighted_remove"
 
     # Find files.
     files = []
@@ -89,9 +89,9 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = ("./saved_models/single_batch_model_0.pkl")
+    model_path = "balanced_gtn_0.pkl"
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
-                              model="modified")
+                              pre_model="modified_gtn")
 
     # Iterate over files.
     files = files[:3000]
@@ -118,7 +118,7 @@ def evaluate():
         output_file = os.path.join(output_directory, f)
         save_challenge_predictions(output_file, scores, labels)
 
-    get_true_labels(custom_files=files)
+    # get_true_labels(custom_files=files)
 
 
 evaluate()
