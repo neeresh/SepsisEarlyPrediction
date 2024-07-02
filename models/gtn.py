@@ -167,7 +167,8 @@ class GatedTransformerNetwork(Module):
         else:
             padding_mask = None
 
-        # step-wise
+        # step-wise ->  step-wise (temporal) processing stage
+        # (batch_size, time_steps, num_channels)
         encoding_1 = self.embedding_channel(x)
         input_to_gather = encoding_1
 
@@ -186,7 +187,8 @@ class GatedTransformerNetwork(Module):
         for encoder in self.encoder_list_1:
             encoding_1, score_input = encoder(encoding_1, stage, padding_mask=padding_mask)
 
-        # channel-wise
+        # channel-wise -> channel-wise (features) processing stage
+        # (batch_size, num_channels, time_steps)
         encoding_2 = self.embedding_input(x.transpose(-1, -2))
         channel_to_gather = encoding_2
 
