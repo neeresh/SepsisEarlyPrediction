@@ -90,25 +90,27 @@ if __name__ == '__main__':
 
     training_examples, lengths_list, is_sepsis = initialize_experiment('final_dataset.pickle')
 
-    # Case 2: Training on Balanced Dataset - No weights (336, 63, 2)
-    sepsis = pd.Series(is_sepsis)
-    positive_sepsis_idxs = sepsis[sepsis == 1].index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index
-    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
-
-    print(f"Total samples: {len(all_samples)}")
     batch_size = 128 * torch.cuda.device_count()
     print(f"Batch size: {batch_size}")
     logging.info(f"Batch size: {batch_size}")
-    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.20, random_state=42)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=batch_size, mode='padding_and_lengths',
-                                                                           num_workers=8, train_indicies=train_indicies,
-                                                                           test_indicies=test_indicies)
+
+    # # Case 2: Training on Balanced Dataset - No weights (336, 63, 2)
+    # sepsis = pd.Series(is_sepsis)
+    # positive_sepsis_idxs = sepsis[sepsis == 1].index
+    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index
+    # all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+
+    # print(f"Total samples: {len(all_samples)}")
+    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.20, random_state=42)
+    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+    #                                                                        batch_size=batch_size, mode='padding_and_lengths',
+    #                                                                        num_workers=8, train_indicies=train_indicies,
+    #                                                                        test_indicies=test_indicies)
+
     criterion = nn.CrossEntropyLoss()
 
-    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-    #                                                                        batch_size=1024, mode='padding_and_lengths')
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+                                                                           batch_size=batch_size, mode='padding_and_lengths')
 
     device = 'cuda'
     config = gtn_param
@@ -126,11 +128,11 @@ if __name__ == '__main__':
 
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
 
-    # # Case 1: Weighted GTN (Training on Entire Dataset)
-    # class_0_weight = 40336 / (37404 * 2)  # 37404
-    # class_1_weight = 40336 / (2932 * 2)
-    # manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
-    # criterion = nn.CrossEntropyLoss(weight=manual_weights)
+    # Case 1: Weighted GTN (Training on Entire Dataset)
+    class_0_weight = 32268 / (37404 * 2)  # 37404
+    class_1_weight = 32268 / (2932 * 2)
+    manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+    criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
@@ -197,6 +199,6 @@ if __name__ == '__main__':
 
         tqdm.tqdm.write(message)
 
-        save_model(model, model_name=f"balanced_gtn_{epoch}.pkl")
+        save_model(model, model_name=f"modified_gtn_{epoch}.pkl")
 
-    save_model(model, model_name=f"balanced_gtn_final.pkl")
+    save_model(model, model_name=f"modified_gtn_final.pkl")

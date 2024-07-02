@@ -76,6 +76,7 @@ class DataSetup:
     def fill_missing_values(self, pickle_file, method):
 
         training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
+        # training_files = pickle_file
 
         if method == 'mean':
             all_data = pd.concat(training_files)
@@ -119,7 +120,7 @@ class DataSetup:
             training_examples = []
             for training_file in tqdm.tqdm(training_files, desc="Zero Imputation", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
-                # example = example.drop(['SepsisLabel'], axis=1)
+                example = example.drop(['SepsisLabel'], axis=1)
                 example.fillna(0, inplace=True)
                 training_examples.append(example)
 
@@ -162,13 +163,14 @@ class DataSetup:
             training_examples = []
             for training_file in tqdm.tqdm(training_files, desc="Ffill, Bfill, Zeros Imputation",
                                            total=len(training_files)):
-                example = pd.read_csv(training_file, sep=',')
+                # example = pd.read_csv(training_file, sep=',')
+                example = training_file
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
                 example.fillna(value=0, inplace=True)
                 training_examples.append(example)
 
-                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
+                # example.to_csv(os.path.join(self.destination_path, training_file), index=False)
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
@@ -259,7 +261,7 @@ class DataSetup:
             example[columns_to_scale] = pd.DataFrame(scaler.transform(example[columns_to_scale]))
             training_examples.append(example)
 
-        saved_as = 'final_dataset.pickle'
+        saved_as = 'final_dataset_scaled.pickle'
         with open(os.path.join(project_root(), 'data', 'processed', saved_as), 'wb') as f:
             pickle.dump(training_examples, f)
 
@@ -367,8 +369,9 @@ class DataSetup:
 
         training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
 
-        vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
-        vital_signs_idxs = [0, 1, 2, 3, 4, 5, 6, 7]
+        # Ignoring temp, dbp and ETCO2  because of their missing values
+        vital_signs = ['HR', 'O2Sat', 'SBP', 'MAP', 'Resp']
+        vital_signs_idxs = [0, 1, 3, 4, 6]
 
         stats = ['max', 'min', 'mean', 'median', 'std', 'diff_std']
 
@@ -385,7 +388,8 @@ class DataSetup:
         training_examples = []
         for training_file in tqdm.tqdm(training_files, desc="Creating vital window features",
                                        total=len(training_files)):
-            example = pd.read_csv(training_file, sep=',')
+            # example = pd.read_csv(training_file, sep=',')
+            example = training_file
             temp_example = self.feature_slide_window(example.values, vital_signs_idxs)
             temp_example = pd.DataFrame(temp_example, columns=new_columns)
 
@@ -462,16 +466,19 @@ class DataSetup:
 
     def add_feature_informative_missingness(self, training_files):
 
+        # 99% of the missing features are ignored here.
+        # features = ['Bilirubin_direct', 'TroponinI', 'Fibrinogen']
         vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
         laboratory_values = ['BaseExcess', 'HCO3', 'FiO2', 'pH', 'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos',
-                             'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct', 'Glucose', 'Lactate',
-                             'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb',
-                             'PTT', 'WBC', 'Fibrinogen', 'Platelets']
+                             'Calcium', 'Chloride', 'Creatinine', 'Glucose', 'Lactate',
+                             'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'Hct', 'Hgb',
+                             'PTT', 'WBC', 'Platelets']
 
         training_examples = []
         for training_file in tqdm.tqdm(training_files, desc="Adding Feature Informative Missingness",
                                        total=len(training_files)):
-            sepsis_label = training_file['Sepsis_label']
+            training_file = pd.read_csv(training_file)
+            sepsis_label = training_file['SepsisLabel']
             added_missingness = self.feature_informative_missingness(training_file.drop(['SepsisLabel'], axis=1),
                                                                      vital_signs + laboratory_values)
 
@@ -503,14 +510,12 @@ class DataSetup:
         for i, (patient_data, file_name) in enumerate(
                 tqdm.tqdm(zip(training_files, file_names), desc="Converting CSV to PSV",
                           total=len(training_files))):
-
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
-            psv_file_name = file_name.replace('.csv', '.psv')
+            psv_file_name = file_name.split('/')[-1].replace('.csv', '.psv')
             patient_data.to_csv(os.path.join(destination_path, psv_file_name), sep='|', index=False)
 
 
 if __name__ == '__main__':
-
     setup = DataSetup()
 
     # Converts psv to csv
@@ -530,7 +535,8 @@ if __name__ == '__main__':
 
     # Filling missing values and save csv files back
     # Output: training_ffill_bfill_zeros.pickle
-    saved_as = setup.fill_missing_values(method='ffill_bfill', pickle_file=final_dataset_pickle)
+    saved_as = setup.fill_missing_values(pickle_file=final_dataset_pickle, method='ffill_bfill')
+    # saved_as = setup.fill_missing_values(pickle_file=training_files, method='ffill_bfill')
 
     # Sliding window features for vital signs
     # Output: final_dataset.pickle
@@ -547,10 +553,10 @@ if __name__ == '__main__':
 
     # Scaling features
     # Output: final_dataset.pickle
-    saved_as = setup.scale_features(pickle_file=saved_as)
+    saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
 
     # Remove unwanted features
     # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
 
     # Convert all files to psv in test folder (for evaluation)
-    setup.convert_csv_to_psv(pickle_file=saved_as)
+    setup.convert_csv_to_psv(pickle_file='final_dataset.pickle')

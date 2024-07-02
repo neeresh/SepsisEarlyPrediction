@@ -164,8 +164,10 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         tqdm.tqdm.write(message)
         logging.info(message)
 
+        # save_model(model, model_name=f"./saved_models/gtn/gtn_epoch_{epoch}.pkl")
+
     # Saving the model
-    save_model(model, model_name="./saved_models/gtn/gtn_final_model.pkl")
+    save_model(model, model_name="./saved_models/gtn/gtn_final.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -198,32 +200,33 @@ if __name__ == '__main__':
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
 
-    # Default
-    class_0_weight = 40336 / (37404 * 2)  # 37404
-    class_1_weight = 40336 / (2932 * 2)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=128, mode='padding')
+    # # Default
+    # class_0_weight = 40336 / (37404 * 2)  # 37404
+    # class_1_weight = 40336 / (2932 * 2)
+    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+    #                                                                        batch_size=128, mode='padding')
 
     # Reducing the samples to have balanced dataset
     # class_0_weight = 8543 / (5611 * 2)
     # class_1_weight = 8543 / (2932 * 2)
 
-    # sepsis = pd.Series(is_sepsis)
-    # positive_sepsis_idxs = sepsis[sepsis == 1].index
-    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.15).index
-    # all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
-    #
-    # print(f"Total samples: {len(all_samples)}")
-    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
-    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-    #                                                                        128, 'padding',
-    #                                                                        num_workers=8, train_indicies=train_indicies,
-    #                                                                        test_indicies=test_indicies)
+    sepsis = pd.Series(is_sepsis)
+    positive_sepsis_idxs = sepsis[sepsis == 1].index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.15).index
+    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+
+    print(f"Total samples: {len(all_samples)}")
+    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+                                                                           128, 'padding',
+                                                                           num_workers=8, train_indicies=train_indicies,
+                                                                           test_indicies=test_indicies)
 
     config = gtn_param
+    # d_input: 336, d_channel: 68, d_output: 2
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
     print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
-    num_epochs = 5
+    num_epochs = 30
 
     print(d_input, d_channel, d_output)
 
@@ -236,10 +239,10 @@ if __name__ == '__main__':
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
-                          class_1_weight=class_1_weight, epochs=num_epochs)
+    # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
+    #                       class_1_weight=class_1_weight, epochs=num_epochs)
 
-    # metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
 
     train_losses, val_losses, test_losses, = metrics['train_loss'], metrics['val_loss'], metrics['test_loss']
     train_accuracies, val_accuracies, test_accuracies = metrics['train_accuracy'], metrics['val_accuracy'], metrics[

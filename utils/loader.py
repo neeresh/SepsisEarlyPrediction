@@ -223,6 +223,41 @@ class DatasetWithPaddingAndLengths(Dataset):
         return self.data[item], self.labels[item], self.lengths[item]
 
 
+# class DatasetWithPaddingAndLengths(Dataset):
+#     """
+#     Labels are saved as (timesteps,) instead of single value
+#     """
+#     def __init__(self, training_examples_list, lengths_list, is_sepsis):
+#         self.data, self.labels, self.lengths = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
+#
+#     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
+#         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
+#         data, labels, lengths = [], [], []
+#         max_time_step = 336
+#         for patient_data, sepsis, length in tqdm.tqdm(zip(training_examples_list, is_sepsis, lengths_list),
+#                                                       desc="Padding...",
+#                                                       total=len(training_examples_list)):
+#             y_values = torch.from_numpy(patient_data['SepsisLabel'].values)
+#             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+#             pad = (max_time_step - len(patient_data), 0)
+#             patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
+#
+#             data.append(torch.from_numpy(patient_data))
+#             labels.append(y_values)
+#             lengths.append(length)
+#
+#         # logging.info(f"Total number of samples after applying window method: ({len(data)})")
+#         # logging.info(f"Distribution of Sepsis:\n{pd.Series(labels).value_counts()}")
+#
+#         return data, labels, lengths
+#
+#     def __len__(self):
+#         return len(self.data)
+#
+#     def __getitem__(self, item):
+#         return self.data[item], self.labels[item], self.lengths[item]
+
+
 def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=8, train_indicies=None,
                 test_indicies=None):
 

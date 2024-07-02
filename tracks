@@ -20,3 +20,12 @@ Model's balance between precision and recall (F-measure): 0.05070563257149994
 Normalized utility score: -0.06873854255096638
 
 
+# Added Masking to avoid the affect of padded rows in encoder
+# Trianing and Testing the model similar to the evaluation procedure
+# Utilizing Multi-GPUs
+# (336, 40, 2)
+
+
+    # Make data balanced by reducing the majority class samples
+
+

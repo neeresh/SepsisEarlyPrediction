@@ -33,7 +33,7 @@ def get_sepsis_score(data, model):
     patient_data = patient_data.fillna(0)
 
     # Adding additional features (batch_size, time_steps, 40) -> (batch_size, time_steps, 63)
-    patient_data = add_additional_features_for_evaluation(patient_data)
+    # patient_data = add_additional_features_for_evaluation(patient_data)
 
     # Padding extra rows
     patient_data_length = [len(patient_data)]
