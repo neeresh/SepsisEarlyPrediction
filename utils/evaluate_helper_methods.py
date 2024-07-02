@@ -26,9 +26,25 @@ import pandas as pd
 device = 'cuda'
 
 
+def preprocessing(patient_data):
+    columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
+               'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct',
+               'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct',
+               'Hgb', 'PTT', 'WBC', 'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2', 'HospAdmTime',
+               'ICULOS']
+
+    patient_data = pd.DataFrame(patient_data, columns=columns)
+    patient_data = add_feature_informative_missingness(patient_data)
+    patient_data = fill_missing_values(patient_data)
+    patient_data = add_sliding_features_for_vital_signs(patient_data)
+    patient_data = add_additional_features(patient_data)
+
+    return patient_data
+
+
 def load_model(model, model_name="model_gtn.pkl"):
 
-    device = 'cpu'
+    device = 'cuda'
 
     print(f"Loading {model_name} GTN model...")
     model.load_state_dict(torch.load(model_name))
@@ -47,13 +63,12 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name="model_gtn.pkl", 
     Used to load the trained model
     """
     config = gtn_param
-    d_input, d_channel, d_output = d_input, d_channel, d_output  # (time_steps (window_size), channels, num_classes)
-
     if pre_model == 'default':
         model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
                                         d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                         v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                         pe=config['pe'], mask=config['mask'], device=device).to(device)
+
     elif pre_model == 'modified_gtn':
         print("Loading modified gtn model")
         model = ModifiedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
@@ -119,40 +134,40 @@ def t_suspicion(patient_data):
     return patient_data
 
 
-def add_additional_features_for_evaluation(patient_data):
-    patient_data['MAP_SOFA'] = map_sofa(patient_data['MAP'])
-    patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
-    patient_data['Platelets_SOFA'] = patient_data['Platelets'].apply(platelets_sofa)
-    patient_data['SOFA_score'] = patient_data.apply(sofa_score, axis=1)
-    patient_data = detect_sofa_change(patient_data)
-
-    patient_data['ResP_qSOFA'] = patient_data['Resp'].apply(respiratory_rate_qsofa)
-    patient_data['SBP_qSOFA'] = patient_data['SBP'].apply(sbp_qsofa)
-    patient_data['qSOFA_score'] = patient_data.apply(qsofa_score, axis=1)
-    patient_data = detect_qsofa_change(patient_data)
-
-    patient_data['qSOFA_indicator'] = patient_data.apply(q_sofa_indicator, axis=1)  # Sepsis detected
-    patient_data['SOFA_indicator'] = patient_data.apply(sofa_indicator, axis=1)  # Organ Dysfunction occurred
-    patient_data['Mortality_sofa'] = patient_data.apply(mortality_sofa, axis=1)  # Morality rate
-
-    patient_data['Temp_sirs'] = patient_data['Temp'].apply(temp_sirs)
-    patient_data['HR_sirs'] = patient_data['HR'].apply(heart_rate_sirs)
-    patient_data['Resp_sirs'] = patient_data['Resp'].apply(resp_sirs)
-    patient_data['paco2_sirs'] = patient_data['PaCO2'].apply(resp_sirs)
-    patient_data['wbc_sirs'] = patient_data['WBC'].apply(wbc_sirs)
-
-    patient_data = t_suspicion(patient_data)
-    patient_data = t_sofa(patient_data)
-    patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
-
-    # # NEWS - National Early Warning Score
-    patient_data['HR_NEWS'] = hr_news(patient_data['HR'])
-    patient_data['Temp_NEWS'] = temp_news(patient_data['Temp'])
-    patient_data['Resp_NEWS'] = resp_news(patient_data['Resp'])
-    patient_data['Creatinine_NEWS'] = creatinine_news(patient_data['Creatinine'])
-    patient_data['MAP_NEWS'] = map_news(patient_data['MAP'])
-
-    return patient_data
+# def add_additional_features_for_evaluation(patient_data):
+#     patient_data['MAP_SOFA'] = map_sofa(patient_data['MAP'])
+#     patient_data['Bilirubin_total_SOFA'] = patient_data['Bilirubin_total'].apply(total_bilirubin_sofa)
+#     patient_data['Platelets_SOFA'] = patient_data['Platelets'].apply(platelets_sofa)
+#     patient_data['SOFA_score'] = patient_data.apply(sofa_score, axis=1)
+#     patient_data = detect_sofa_change(patient_data)
+#
+#     patient_data['ResP_qSOFA'] = patient_data['Resp'].apply(respiratory_rate_qsofa)
+#     patient_data['SBP_qSOFA'] = patient_data['SBP'].apply(sbp_qsofa)
+#     patient_data['qSOFA_score'] = patient_data.apply(qsofa_score, axis=1)
+#     patient_data = detect_qsofa_change(patient_data)
+#
+#     patient_data['qSOFA_indicator'] = patient_data.apply(q_sofa_indicator, axis=1)  # Sepsis detected
+#     patient_data['SOFA_indicator'] = patient_data.apply(sofa_indicator, axis=1)  # Organ Dysfunction occurred
+#     patient_data['Mortality_sofa'] = patient_data.apply(mortality_sofa, axis=1)  # Morality rate
+#
+#     patient_data['Temp_sirs'] = patient_data['Temp'].apply(temp_sirs)
+#     patient_data['HR_sirs'] = patient_data['HR'].apply(heart_rate_sirs)
+#     patient_data['Resp_sirs'] = patient_data['Resp'].apply(resp_sirs)
+#     patient_data['paco2_sirs'] = patient_data['PaCO2'].apply(resp_sirs)
+#     patient_data['wbc_sirs'] = patient_data['WBC'].apply(wbc_sirs)
+#
+#     patient_data = t_suspicion(patient_data)
+#     patient_data = t_sofa(patient_data)
+#     patient_data['t_sepsis'] = patient_data.apply(t_sepsis, axis=1)
+#
+#     # # NEWS - National Early Warning Score
+#     patient_data['HR_NEWS'] = hr_news(patient_data['HR'])
+#     patient_data['Temp_NEWS'] = temp_news(patient_data['Temp'])
+#     patient_data['Resp_NEWS'] = resp_news(patient_data['Resp'])
+#     patient_data['Creatinine_NEWS'] = creatinine_news(patient_data['Creatinine'])
+#     patient_data['MAP_NEWS'] = map_news(patient_data['MAP'])
+#
+#     return patient_data
 
 
 def remove_unwanted_features_for_evaluation(patient_data):  # Check and remove

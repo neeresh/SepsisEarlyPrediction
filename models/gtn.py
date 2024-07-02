@@ -156,19 +156,11 @@ class GatedTransformerNetwork(Module):
         self.pe = pe
         self._d_input = d_input
         self._d_model = d_model
-
-        self.mask = False  # Masking padded rows by default
+        self.d_output = d_output
 
     def forward(self, x, stage):
 
-        # Masking
-        if self.mask:
-            padding_mask = (x.sum(dim=-1) != 0)  # (batch_size, time_steps)
-        else:
-            padding_mask = None
-
-        # step-wise ->  step-wise (temporal) processing stage
-        # (batch_size, time_steps, num_channels)
+        # step-wise
         encoding_1 = self.embedding_channel(x)
         input_to_gather = encoding_1
 
@@ -185,20 +177,18 @@ class GatedTransformerNetwork(Module):
             encoding_1 = encoding_1 + pe
 
         for encoder in self.encoder_list_1:
-            encoding_1, score_input = encoder(encoding_1, stage, padding_mask=padding_mask)
+            encoding_1, score_input = encoder(encoding_1, stage)
 
-        # channel-wise -> channel-wise (features) processing stage
-        # (batch_size, num_channels, time_steps)
+        # channel-wise
         encoding_2 = self.embedding_input(x.transpose(-1, -2))
         channel_to_gather = encoding_2
 
         for encoder in self.encoder_list_2:
-            encoding_2, score_channel = encoder(encoding_2, stage, padding_mask=None)
+            encoding_2, score_channel = encoder(encoding_2, stage)
 
         encoding_1 = encoding_1.reshape(encoding_1.shape[0], -1)
         encoding_2 = encoding_2.reshape(encoding_2.shape[0], -1)
 
-        # gate
         gate = F.softmax(self.gate(torch.cat([encoding_1, encoding_2], dim=-1)), dim=-1)
         encoding = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
 

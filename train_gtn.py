@@ -70,8 +70,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
     # GTN
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
-
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=epochs)
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
@@ -155,7 +154,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         test_losses.append(epoch_test_loss)
         test_accuracies.append(epoch_test_accuracy)
 
-        # scheduler.step()
+        scheduler.step()
 
         message = f"Epoch {epoch + 1}/{epochs} - " \
                   f"Train Loss: {epoch_train_loss:.4f}, Train Acc: {epoch_train_accuracy:.4f}, " \
@@ -212,7 +211,7 @@ if __name__ == '__main__':
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.15).index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
 
     print(f"Total samples: {len(all_samples)}")
