@@ -47,12 +47,12 @@ def prepare_test_data():
             tqdm.tqdm(zip(training_files, file_names), desc="Processing Positive Sepsis Patients",
                       total=len(training_files))):
         patient_data = pd.read_csv(patient_data)
-        # patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+        patient_data = patient_data.drop(['PatientID'], axis=1)
         # psv_file_name = file_name.split('/')[-1].replace('.csv', '.psv')
         patient_data.to_csv(os.path.join(destination_path, file_name), sep='|', index=False)
 
     # True labels - (For evaluation)
-    destination_path = os.path.join(os.getcwd(), 'labels')
+    destination_path = os.path.join(os.getcwd(), 'labels_modified_gtn')
     for i, (patient_data, file_name) in enumerate(
             tqdm.tqdm(zip(training_files, file_names), desc="Processing True Predictions",
                       total=len(training_files))):
@@ -65,6 +65,7 @@ def prepare_test_data():
 
 
 def get_sepsis_score(data, model):
+
     columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
                'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct',
                'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct',
@@ -72,6 +73,9 @@ def get_sepsis_score(data, model):
                'ICULOS']
 
     patient_data = pd.DataFrame(data, columns=columns)
+
+    # length parameter for modified gtn
+    seq_length = [len(data)]
 
     # Given input is preprocessed
     patient_data = preprocessing(patient_data=patient_data)
@@ -89,7 +93,7 @@ def get_sepsis_score(data, model):
 
     with torch.no_grad():
         patient_data = patient_data.to(device)
-        outputs, _, _, _, _, _, _ = model(patient_data, stage='test')
+        outputs, _, _, _, _, _, _ = model(patient_data, seq_length, stage='test')
 
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
@@ -108,9 +112,10 @@ def evaluate():
     #                                'challenge-2019', '1.0.0', 'training', 'training_setA')
 
     # Test data and true labels are created
-    prepare_test_data()
+    # prepare_test_data()
+
     input_directory = os.path.join(project_root(), 'data', 'test_data')
-    output_directory = "./predictions"
+    output_directory = "./predictions_modified_gtn/"
 
     # Find files.
     files = []
@@ -126,7 +131,7 @@ def evaluate():
     # Load Sepsis Model
     model_path = "./saved_models/gtn/gtn_final.pkl"
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
-                              pre_model="default")
+                              pre_model="modified_gtn")
 
     # Iterate over files.
     # files = files[:3000]

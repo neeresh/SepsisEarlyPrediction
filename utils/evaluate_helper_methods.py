@@ -79,20 +79,38 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name="model_gtn.pkl", 
     return load_model(model, model_name)
 
 
+# def load_challenge_data(file):
+#     """
+#     Parses .psv file and removes SepsisLabel (Target)
+#     returns: np.array
+#     """
+#
+#     with open(file, 'r') as f:
+#         header = f.readline().strip()
+#         column_names = header.split('|')
+#         data = np.loadtxt(f, delimiter='|')
+#
+#     # Ignore SepsisLabel column if present.
+#     if column_names[-1] == 'SepsisLabel':
+#         column_names = column_names[:-1]
+#         data = data[:, :-1]
+#
+#     return data
+
 def load_challenge_data(file):
     """
     Parses .psv file and removes SepsisLabel (Target)
     returns: np.array
     """
-    with open(file, 'r') as f:
-        header = f.readline().strip()
-        column_names = header.split('|')
-        data = np.loadtxt(f, delimiter='|')
+    # Use pandas to read the file
+    df = pd.read_csv(file, sep='|')
 
-    # Ignore SepsisLabel column if present.
-    if column_names[-1] == 'SepsisLabel':
-        column_names = column_names[:-1]
-        data = data[:, :-1]
+    # Check if the last column is 'SepsisLabel' and drop it if present
+    if 'SepsisLabel' in df.columns:
+        df = df.drop(columns=['SepsisLabel'])
+
+    # Convert the DataFrame to a numpy array
+    data = df.to_numpy()
 
     return data
 
