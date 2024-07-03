@@ -34,75 +34,98 @@ class DatasetWithPadding(Dataset):
         return self.data[item], self.labels[item]
 
 
-def get_train_val_test_indices():
+def get_train_val_test_indices(fraction):
 
-    # Reading from in /localscratch
-    is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'))
+    # is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None)
 
-    # Reading from locally
-    # is_sepsis_file = pd.read_csv('./data/processed/is_sepsis.txt')
+    # Handling immabalanced dataset
+    file_path = os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')
+    sepsis = pd.Series(open(file_path, 'r').read().splitlines()).astype(int)
 
-    train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
-    train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
+    positive_sepsis_idxs = sepsis[sepsis == 1].index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=fraction, random_state=42).index
 
-    train_indices = train.index.values
-    val_indices = val.index.values
-    test_indices = test.index.values
+    # print(f"Number of positive sepsis: {len(positive_sepsis_idxs)}")  # 2932
+    # print(f"Number of negative sepsis: {len(negative_sepsis_idxs)}")  # 7481 for 0.20
 
-    return train_indices, val_indices, test_indices
+    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+    np.random.shuffle(all_samples)
+
+    train_temp, test = train_test_split(all_samples, test_size=0.2, random_state=42)
+    # End
+
+    # train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
+    train, test = train_temp, test
+    # train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
+
+    # train_indices = train.index.values
+    # val_indices = val.index.values
+    # test_indices = test.index.values
+
+    train_indices, test_indices = train, test
+
+    # return train_indices, val_indices, test_indices
+    return train_indices, test_indices
 
 
 def initialize_experiment():
     data_file = "final_dataset.pickle"
 
-    # [[patient1], [patient2], [patient3], ..., [patientN]]
     training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
-    # training_examples = pd.read_pickle(f"./data/processed/{data_file}")
 
-    # Saving in /localscratch
     with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
         lengths_list = [int(length) for length in f.read().splitlines()]
+
     with open(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')) as f:
         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
-
-    # Saving Locally
-    # with open(os.path.join('./data/processed/lengths.txt')) as f:
-    #     lengths_list = [int(length) for length in f.read().splitlines()]
-    # with open(os.path.join('./data/processed/is_sepsis.txt')) as f:
-    #     is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
 
     return training_examples, lengths_list, is_sepsis
 
 
-def get_starters():
+def get_starters(fraction):
     """
     This is the first method to be called.
     """
-    train_indicies, val_indices, test_indicies = get_train_val_test_indices()
+    # train_indicies, val_indices, test_indicies = get_train_val_test_indices()
+    train_indicies, test_indicies = get_train_val_test_indices(fraction)
     examples, lengths_list, is_sepsis = initialize_experiment()
 
-    return train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis
+    # return train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis
+    return train_indicies, test_indicies, examples, lengths_list, is_sepsis
 
 
 def load_data(train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis):
 
+    # train_samples = [examples[idx] for idx in train_indicies]
+    # val_samples = [examples[idx] for idx in val_indices]
+    # test_samples = [examples[idx] for idx in test_indicies]
+    #
+    # train_lengths_list = [lengths_list[idx] for idx in train_indicies]
+    # val_lengths_list = [lengths_list[idx] for idx in val_indices]
+    # test_lengths_list = [lengths_list[idx] for idx in test_indicies]
+    #
+    # is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
+    # is_sepsis_val = [is_sepsis[idx] for idx in val_indices]
+    # is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+
     train_samples = [examples[idx] for idx in train_indicies]
-    val_samples = [examples[idx] for idx in val_indices]
     test_samples = [examples[idx] for idx in test_indicies]
 
     train_lengths_list = [lengths_list[idx] for idx in train_indicies]
-    val_lengths_list = [lengths_list[idx] for idx in val_indices]
     test_lengths_list = [lengths_list[idx] for idx in test_indicies]
 
     is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
-    is_sepsis_val = [is_sepsis[idx] for idx in val_indices]
     is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+
 
     train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list,
                                        is_sepsis=is_sepsis_train)
-    val_dataset = DatasetWithPadding(training_examples_list=val_samples, lengths_list=val_lengths_list,
-                                     is_sepsis=is_sepsis_val)
+    # val_dataset = DatasetWithPadding(training_examples_list=val_samples, lengths_list=val_lengths_list,
+    #                                  is_sepsis=is_sepsis_val)
     test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list,
                                       is_sepsis=is_sepsis_test)
 
-    return train_dataset, val_dataset, test_dataset
+
+
+    # return train_dataset, val_dataset, test_dataset
+    return train_dataset, test_dataset

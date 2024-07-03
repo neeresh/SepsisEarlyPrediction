@@ -1,5 +1,6 @@
 import datetime
 import logging
+import numpy as np
 import os
 from typing import Optional
 
@@ -63,10 +64,10 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         print(f"Using manual weights for classes 0 and 1")
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
         manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
-        criterion = nn.CrossEntropyLoss(weight=manual_weights)
+        criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=0.05)
 
     else:
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
 
     # GTN
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
@@ -107,8 +108,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         epoch_train_accuracy = correct_train / total_train
         train_losses.append(epoch_train_loss)
         train_accuracies.append(epoch_train_accuracy)
-
-        save_model(model, model_name=f"./saved_models/gtn/gtn_epoch_{epoch}.pkl")
 
         # Validation phase
         if val_loader:
@@ -163,8 +162,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         tqdm.tqdm.write(message)
         logging.info(message)
 
-        # save_model(model, model_name=f"./saved_models/gtn/gtn_epoch_{epoch}.pkl")
-
     # Saving the model
     save_model(model, model_name="./saved_models/gtn/gtn_final.pkl")
 
@@ -206,23 +203,30 @@ if __name__ == '__main__':
     #                                                                        batch_size=128, mode='padding')
 
     # Reducing the samples to have balanced dataset
-    # class_0_weight = 8543 / (5611 * 2)
-    # class_1_weight = 8543 / (2932 * 2)
+
+    # batch_size = 64 * torch.cuda.device_count()
+    batch_size = 128 * torch.cuda.device_count()
+    print(f"Batch size: {batch_size}")
+    logging.info(f"Batch size: {batch_size}")
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.20).index
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+    np.random.shuffle(all_samples)
+
+    print(f"Number of positive samples: {len(positive_sepsis_idxs)}")
+    print(f"Number of negative samples: {len(negative_sepsis_idxs)}")
 
     print(f"Total samples: {len(all_samples)}")
     train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
     train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           128, 'padding',
+                                                                           batch_size=batch_size, mode='padding',
                                                                            num_workers=8, train_indicies=train_indicies,
                                                                            test_indicies=test_indicies)
 
     config = gtn_param
-    # d_input: 336, d_channel: 68, d_output: 2
+    # d_input: 336, d_channel: 191, d_output: 2
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
     print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
     num_epochs = 30
@@ -238,6 +242,10 @@ if __name__ == '__main__':
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
 
+    # model = nn.DataParallel(model)
+
+    class_0_weight = len(all_samples) / (len(negative_sepsis_idxs) * d_output)
+    class_1_weight = len(all_samples) / (len(positive_sepsis_idxs) * d_output)
     # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
     #                       class_1_weight=class_1_weight, epochs=num_epochs)
 

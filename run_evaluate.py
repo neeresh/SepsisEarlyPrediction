@@ -17,9 +17,54 @@ import tqdm
 device = 'cuda'
 d_input, d_channel, d_output = 336, 191, 2
 
+from utils.get_true_labels import get_true_labels
+
+
+def prepare_test_data():
+    # Gather sepsis details
+    file_path = os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')
+    sepsis = pd.Series(open(file_path, 'r').read().splitlines()).astype(int)
+
+    # Collect all samples
+    csv_path = os.path.join(project_root(), 'data', 'csv')
+    training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
+    training_files.sort()
+
+    # Filtering only positive samples
+    positive_sepsis = sepsis[sepsis == 1].index
+    # negative_sepsis = sepsis[sepsis == 0].index
+
+    # Filtered positive patients
+    training_files = [training_files[idx] for idx in positive_sepsis]
+
+    # File names
+    file_names = [training_files[idx].split('/')[-1].replace('.csv', '.psv') for idx in range(len(training_files))]
+    file_names.sort()
+
+    # Converting them to psv files
+    destination_path = os.path.join(project_root(), 'data', 'test_data')
+    for i, (patient_data, file_name) in enumerate(
+            tqdm.tqdm(zip(training_files, file_names), desc="Processing Positive Sepsis Patients",
+                      total=len(training_files))):
+        patient_data = pd.read_csv(patient_data)
+        # patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+        # psv_file_name = file_name.split('/')[-1].replace('.csv', '.psv')
+        patient_data.to_csv(os.path.join(destination_path, file_name), sep='|', index=False)
+
+    # True labels - (For evaluation)
+    destination_path = os.path.join(os.getcwd(), 'labels')
+    for i, (patient_data, file_name) in enumerate(
+            tqdm.tqdm(zip(training_files, file_names), desc="Processing True Predictions",
+                      total=len(training_files))):
+        patient_data = pd.read_csv(patient_data)
+        patient_data = patient_data['SepsisLabel']
+        # psv_file_name = file_name.split('/')[-1].replace('.csv', '.psv')
+        patient_data.to_csv(os.path.join(destination_path, file_name), sep='|', index=False)
+
+    print(f"Test data is all set!!!.\nNumber of patients: {len(training_files)}")
+
 
 def get_sepsis_score(data, model):
-
     columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
                'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct',
                'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct',
@@ -58,11 +103,14 @@ def get_sepsis_score(data, model):
 
 
 def evaluate():
-
     # Gathering Files
-    input_directory = os.path.join(project_root(), 'physionet.org', 'files',
-                                   'challenge-2019', '1.0.0', 'training', 'training_setA')
-    output_directory = "./predictions_weighted_remove"
+    # input_directory = os.path.join(project_root(), 'physionet.org', 'files',
+    #                                'challenge-2019', '1.0.0', 'training', 'training_setA')
+
+    # Test data and true labels are created
+    prepare_test_data()
+    input_directory = os.path.join(project_root(), 'data', 'test_data')
+    output_directory = "./predictions"
 
     # Find files.
     files = []
@@ -81,9 +129,10 @@ def evaluate():
                               pre_model="default")
 
     # Iterate over files.
-    files = files[:3000]
+    # files = files[:3000]
     print('Predicting sepsis labels...')
     num_files = len(files)
+    print(f"Total number of files: {num_files}")
     for i, f in tqdm.tqdm(enumerate(files), desc="Remaining Files: ", total=num_files):
         # print('    {}/{}...'.format(i+1, num_files))
 
@@ -105,13 +154,13 @@ def evaluate():
         output_file = os.path.join(output_directory, f)
         save_challenge_predictions(output_file, scores, labels)
 
-    get_true_labels(custom_files=files)
+    # get_true_labels(custom_files=files)
 
 
 evaluate()
 
 # Get true labels
-# get_true_labels()
+get_true_labels()
 
 # Evaluate true and predicted labels
 

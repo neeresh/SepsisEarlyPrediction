@@ -9,7 +9,8 @@ import torch.nn as nn
 from ray.tune.schedulers import ASHAScheduler
 
 from models.gtn import GatedTransformerNetwork
-from tuning.training import train_sepsis, test_accuracy
+# from tuning.training import train_sepsis, test_accuracy
+from tuning.training import train_sepsis
 from utils.path_utils import project_root
 
 
@@ -21,19 +22,25 @@ def main(num_samples, max_epochs, gpus_per_trial):
     hyperparameters = {
         "d_model": tune.choice([128, 256, 512, 1024]),
         "d_hidden": tune.choice([128, 256, 512, 1024]),
-        "q": tune.choice([2, 4, 6, 8]),
-        "v": tune.choice([2, 4, 6, 8]),
-        "h": tune.choice([2, 4, 6, 8]),
-        "N": tune.choice([2, 4, 6, 8]),
-        "dropout": tune.loguniform(0.05, 0.75),
-        "lr": tune.loguniform(1e-4, 1e-1), 
-        "batch_size": tune.choice([16, 32, 64])
+        "q": tune.choice([1, 2, 3, 4, 5, 6, 7, 8]),
+        "v": tune.choice([1, 2, 3, 4, 5, 6, 7, 8]),
+        "h": tune.choice([1, 2, 3, 4, 5, 6, 7, 8]),
+        "N": tune.choice([1, 2, 3, 4, 5, 6, 7, 8]),
+        "dropout": tune.loguniform(0.01, 0.5),
+        "lr": tune.loguniform(1e-7, 1e-3),
+        "batch_size": tune.choice([64, 128, 256]),
+        'w1': tune.loguniform(0.001, 6),
+        'w2': tune.loguniform(0.001, 6),
+        'epochs': tune.choice([5, 10, 15, 20, 25, 30, 35, 40, 45, 50]),
+        'labelsmoothing': tune.loguniform(0.0001, 0.05),
+        'mask': tune.choice([True, False]),
+        'majority_samples': tune.loguniform(0.1, 0.40),
         }
 
     scheduler = ASHAScheduler(metric="loss", mode="min", max_t=max_epochs, grace_period=1, reduction_factor=2)
 
     output_dir = os.path.join(project_root(), '..', '..', 'results', 'physionet2019', 'hyperparameter_tuning')
-    result = tune.run(partial(train_sepsis), resources_per_trial={"cpu": 6, "gpu": gpus_per_trial},
+    result = tune.run(partial(train_sepsis), resources_per_trial={"cpu": 8, "gpu": gpus_per_trial},
                       config=hyperparameters, num_samples=num_samples, scheduler=scheduler,
                       storage_path=output_dir)
 
@@ -69,8 +76,6 @@ def main(num_samples, max_epochs, gpus_per_trial):
     #     test_acc = test_accuracy(best_trained_model, device)
     #     print("Best trial test set accuracy: {}".format(test_acc))
 
-    # TODO: we can make validation test accuracy exactly as how challenge is being evaluated
-
 
 if __name__ == "__main__":
-    main(num_samples=20, max_epochs=5, gpus_per_trial=1)
+    main(num_samples=50, max_epochs=50, gpus_per_trial=1)

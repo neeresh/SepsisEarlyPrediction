@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 import torch
 import tqdm
@@ -16,9 +17,6 @@ import os
 
 import logging
 from utils.path_utils import project_root
-
-
-# from tensorboardX import SummaryWriter
 
 
 def _setup_destination(current_time):
@@ -94,23 +92,23 @@ if __name__ == '__main__':
     print(f"Batch size: {batch_size}")
     logging.info(f"Batch size: {batch_size}")
 
-    # # Case 2: Training on Balanced Dataset - No weights (336, 63, 2)
-    # sepsis = pd.Series(is_sepsis)
-    # positive_sepsis_idxs = sepsis[sepsis == 1].index
-    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index
-    # all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+    sepsis = pd.Series(is_sepsis)
+    positive_sepsis_idxs = sepsis[sepsis == 1].index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.10, random_state=42).index
+    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+    np.random.shuffle(all_samples)
 
-    # print(f"Total samples: {len(all_samples)}")
-    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.20, random_state=42)
-    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-    #                                                                        batch_size=batch_size, mode='padding_and_lengths',
-    #                                                                        num_workers=8, train_indicies=train_indicies,
-    #                                                                        test_indicies=test_indicies)
+    print(f"Number of positive samples: {len(positive_sepsis_idxs)}")
+    print(f"Number of negative samples: {len(negative_sepsis_idxs)}")
+
+    print(f"Total samples: {len(all_samples)}")
+    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.20, random_state=42)
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+                                                                           batch_size=batch_size, mode='padding_and_lengths',
+                                                                           num_workers=8, train_indicies=train_indicies,
+                                                                           test_indicies=test_indicies)
 
     criterion = nn.CrossEntropyLoss()
-
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=batch_size, mode='padding_and_lengths')
 
     device = 'cuda'
     config = gtn_param
@@ -124,20 +122,14 @@ if __name__ == '__main__':
                                             v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                             pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
 
     optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
-
-    # Case 1: Weighted GTN (Training on Entire Dataset)
-    class_0_weight = 32268 / (37404 * 2)  # 37404
-    class_1_weight = 32268 / (2932 * 2)
-    manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
-    criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
 
-    epochs = 5
+    epochs = 20
     for epoch in range(epochs):
         model.train()
         running_train_loss = 0.0
@@ -199,6 +191,6 @@ if __name__ == '__main__':
 
         tqdm.tqdm.write(message)
 
-        save_model(model, model_name=f"modified_gtn_{epoch}.pkl")
+        save_model(model, model_name=f"./saved_models/modified_gtn/modified_gtn_{epoch}.pkl")
 
-    save_model(model, model_name=f"modified_gtn_final.pkl")
+    save_model(model, model_name=f"./saved_models/modified_gtn/modified_gtn.pkl")
