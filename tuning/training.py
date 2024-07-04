@@ -40,8 +40,9 @@ def train_sepsis(hyperparameters=None):
     model.to(device)
 
     # Criteria, Optimizer, & Scheduler
-    manual_weights = torch.tensor([hyperparameters['w1'], hyperparameters['w2']]).to(device)
-    criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=hyperparameters['labelsmoothing'])
+    # manual_weights = torch.tensor([hyperparameters['w1'], hyperparameters['w2']]).to(device)
+    # criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=hyperparameters['labelsmoothing'])
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adagrad(model.parameters(), lr=hyperparameters['lr'])  # GTN
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=hyperparameters['epochs'])
 
@@ -60,10 +61,10 @@ def train_sepsis(hyperparameters=None):
 
     # Loading datasets
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=int(hyperparameters['batch_size']),
-                                               shuffle=True, num_workers=8)
+                                               shuffle=True, num_workers=4)
 
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=int(hyperparameters['batch_size']),
-                                             shuffle=False, num_workers=8)
+                                             shuffle=False, num_workers=4)
 
     # Training the model
     for epoch in range(start_epoch, hyperparameters['epochs']):
