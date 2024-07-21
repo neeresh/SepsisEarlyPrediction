@@ -5,8 +5,7 @@
 """
 from torch import nn
 
-from models.blocks.encoder_layer import EncoderLayer
-from models.embedding.positional_encoding import PostionalEncoding 
+from models.vanilla.blocks.encoder_layer import EncoderLayer
 
 
 class Encoder(nn.Module):

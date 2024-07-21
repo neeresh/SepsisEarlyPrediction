@@ -1,6 +1,7 @@
 
 from torch import nn
 
+
 class ClassificationHead(nn.Module):
     def __init__(self,d_model, seq_len , details, n_classes: int = 5):
       super().__init__()

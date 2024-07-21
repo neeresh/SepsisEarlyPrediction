@@ -2,9 +2,9 @@
 
 from torch import nn
 
-from models.layers.layer_norm import LayerNorm
-from models.layers.multi_head_attention import MultiHeadAttention
-from models.layers.position_wise_feed_forward import PositionwiseFeedForward
+from models.vanilla.layers.layer_norm import LayerNorm
+from models.vanilla.layers.multi_head_attention import MultiHeadAttention
+from models.vanilla.layers.position_wise_feed_forward import PositionwiseFeedForward
 
 
 class EncoderLayer(nn.Module):

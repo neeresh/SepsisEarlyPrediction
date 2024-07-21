@@ -3,13 +3,12 @@
 @when : 2019-12-18
 @homepage : https://github.com/gusdnd852
 """
-import torch
 from torch import nn
-from models.embedding.positional_encoding import PostionalEncoding
-from models.layers.classification_head import ClassificationHead
+from models.vanilla.embedding.positional_encoding import PostionalEncoding
+from models.vanilla.layers.classification_head import ClassificationHead
 
-from models.model.encoder import Encoder
-  
+from models.vanilla.model.encoder import Encoder
+
 
 class Transformer(nn.Module):
 
