@@ -1,11 +1,12 @@
-from models.gtn import GatedTransformerNetwork
 from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
     respiratory_rate_qsofa, sbp_qsofa, qsofa_score, q_sofa_indicator, sofa_indicator, detect_qsofa_change, \
     mortality_sofa, temp_sirs, heart_rate_sirs, resp_sirs, paco2_sirs, wbc_sirs, t_sofa, t_sepsis, hr_news, resp_news, \
     temp_news, map_news, creatinine_news
 
-# from train_gtn import GatedTransformerNetwork, load_model, initialize_experiment
-from train_modified_gtn import ModifiedGatedTransformerNetwork
+from train_gtn import load_model
+from models.custom_models.gtn import GatedTransformerNetwork  # Custom GTN
+from models.custom_models.modified_gtn import ModifiedGatedTransformerNetwork  # Modified GTN
+from models.gtn.transformer import Transformer  # Original GTN
 from utils.helpers import get_features
 
 from utils.loader import make_loader
@@ -58,25 +59,34 @@ def load_model(model, model_name="model_gtn.pkl"):
     return model
 
 
-def load_sepsis_model(d_input, d_channel, d_output, model_name="model_gtn.pkl", pre_model='default'):
+def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
     """
     Used to load the trained model
     """
     config = gtn_param
-    if pre_model == 'default':
-        model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                                        d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                                        v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                        pe=config['pe'], mask=config['mask'], device=device).to(device)
+    if pre_model == 'gtn':
+        print(f"Loading from {model_name}...")
+        print(f"Loading original model...")
+
+        model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                    d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                    v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                    pe=config['pe'], mask=config['mask'], device=device).to(device)
+
+        return load_model(model, model_name)
 
     elif pre_model == 'modified_gtn':
+        print(f"Loading from {model_name}...")
         print("Loading modified gtn model")
         model = ModifiedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
                                                 d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                                 v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                                 pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    return load_model(model, model_name)
+        return load_model(model, model_name)
+
+    else:
+        ValueError(f"Couldn't find requested model: {model_name}")
 
 
 # def load_challenge_data(file):

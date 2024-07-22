@@ -258,7 +258,7 @@ class DatasetWithPaddingAndLengths(Dataset):
 #         return self.data[item], self.labels[item], self.lengths[item]
 
 
-def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=8, train_indicies=None,
+def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=4, train_indicies=None,
                 test_indicies=None):
 
     if train_indicies is None and test_indicies is None:

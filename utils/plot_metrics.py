@@ -14,7 +14,7 @@ def plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test
     plt.title('Train and Test Losses')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    plt.xticks(range(1, len(epochs) + 1, 1))
+    # plt.xticks(range(1, len(epochs) + 1, 1))
     plt.legend()
 
     plt.subplot(1, 2, 2)
@@ -23,7 +23,7 @@ def plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test
     plt.title('Train and Test Accuracies')
     plt.xlabel('Epochs')
     plt.ylabel('Accuracy')
-    plt.xticks(range(1, len(epochs) + 1, 1))
+    # plt.xticks(range(1, len(epochs) + 1, 1))
     plt.legend()
 
     plt.savefig(save_path + '/acc_losses.png', bbox_inches='tight', dpi=300)
