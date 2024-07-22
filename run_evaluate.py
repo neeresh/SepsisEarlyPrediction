@@ -21,6 +21,11 @@ from utils.get_true_labels import get_true_labels
 
 
 def prepare_test_data():
+
+    """
+    Used for only evaluating a subset of data
+    """
+
     # Gather sepsis details
     file_path = os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')
     sepsis = pd.Series(open(file_path, 'r').read().splitlines()).astype(int)
@@ -93,7 +98,7 @@ def get_sepsis_score(data, model):
 
     with torch.no_grad():
         patient_data = patient_data.to(device)
-        outputs, _, _, _, _, _, _ = model(patient_data, seq_length, stage='test')
+        outputs, _, _, _, _, _, _ = model(patient_data, stage='test')
 
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
@@ -107,15 +112,16 @@ def get_sepsis_score(data, model):
 
 
 def evaluate():
+
     # Gathering Files
-    # input_directory = os.path.join(project_root(), 'physionet.org', 'files',
-    #                                'challenge-2019', '1.0.0', 'training', 'training_setA')
+    input_directory = os.path.join(project_root(), 'physionet.org', 'files',
+                                   'challenge-2019', '1.0.0', 'training', 'training_setA')
+    output_directory = "./predictions/"
 
     # Test data and true labels are created
     # prepare_test_data()
-
-    input_directory = os.path.join(project_root(), 'data', 'test_data')
-    output_directory = "./predictions_modified_gtn/"
+    # input_directory = os.path.join(project_root(), 'data', 'test_data')
+    # output_directory = "./predictions_modified_gtn/"
 
     # Find files.
     files = []
@@ -124,14 +130,14 @@ def evaluate():
                 'psv'):
             files.append(f)
 
-    # files.sort()
+    files.sort()
     if not os.path.isdir(output_directory):
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = "./saved_models/gtn/gtn_final.pkl"
+    model_path = "./saved_models/gtn/gtn_final_30.pkl"
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
-                              pre_model="modified_gtn")
+                              pre_model="gtn")
 
     # Iterate over files.
     # files = files[:3000]

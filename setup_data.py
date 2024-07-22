@@ -29,16 +29,18 @@ class DataSetup:
         self.csv_path = os.path.join(project_root(), 'data', 'csv')
 
     def convert_to_csv(self):
+        i = 0
         for data_path in self.data_paths:
             training_files = [file for file in os.listdir(data_path) if file.endswith('.psv')]
             training_files.sort()
 
-            for i, file in enumerate(
+            for _, file in enumerate(
                     tqdm.tqdm(training_files, desc="Converting psv to csv", total=len(training_files))):
                 try:
                     temp = pd.read_csv(os.path.join(data_path, file), sep='|')
                     temp['PatientID'] = i
                     temp.to_csv(os.path.join(self.destination_path, file.replace('.psv', '.csv')), sep=',', index=False)
+                    i += 1
                 except Exception as e:
                     print(f"Error processing file {file}: {e}")
 
@@ -52,7 +54,7 @@ class DataSetup:
                 tqdm.tqdm(training_files, desc="Creating train.pickle, lengths_list, is_sepsis files",
                           total=len(training_files))):
             example = pd.read_csv(training_file, sep=',')
-            example['PatientID'] = i
+            # example['PatientID'] = i
 
             training_examples.append(example)
             is_sepsis.append(1 if 1 in example['SepsisLabel'].values else 0)
@@ -475,7 +477,7 @@ class DataSetup:
                              'PTT', 'WBC', 'Platelets']
 
         training_examples = []
-        for training_file in tqdm.tqdm(training_files, desc="Adding Feature Informative Missingness",
+        for training_file in tqdm.tqdm(training_files, desc="Adding Feature Informative Missing-ness",
                                        total=len(training_files)):
             training_file = pd.read_csv(training_file)
             sepsis_label = training_file['SepsisLabel']
@@ -518,28 +520,23 @@ class DataSetup:
 if __name__ == '__main__':
     setup = DataSetup()
 
-    # Converts psv to csv
-    # Output: All psv files to csv files
+    # Converts psv to csv; Output: All psv files to csv files
     setup.convert_to_csv()
 
-    # Rewriting data
-    # Output: lengths.txt, is_sepsis.txt
+    # Rewriting data; Output: lengths.txt, is_sepsis.txt
     csv_path = os.path.join(project_root(), 'data', 'csv')
     training_files = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
     training_files.sort()
     setup.rewrite_csv(training_files=training_files)
 
-    # Add Feature Informative Missingness
-    # Output: final_dataset.pickle
+    # Add Feature Informative Missing-ness; Output: final_dataset.pickle
     final_dataset_pickle = setup.add_feature_informative_missingness(training_files=training_files)
 
-    # Filling missing values and save csv files back
-    # Output: training_ffill_bfill_zeros.pickle
+    # Filling missing values and save csv files back; Output: training_ffill_bfill_zeros.pickle
     saved_as = setup.fill_missing_values(pickle_file=final_dataset_pickle, method='ffill_bfill')
     # saved_as = setup.fill_missing_values(pickle_file=training_files, method='ffill_bfill')
 
-    # Sliding window features for vital signs
-    # Output: final_dataset.pickle
+    # Sliding window features for vital signs; Output: final_dataset.pickle
     saved_as = setup.add_sliding_features_for_vital_signs(pickle_file=saved_as)
 
     # Add features - Scores
@@ -551,12 +548,12 @@ if __name__ == '__main__':
     # is_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None).values
     # setup.save_filtered_data(dataset, is_sepsis)
 
-    # Scaling features
-    # Output: final_dataset.pickle
-    saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
+    # # Scaling features
+    # # Output: final_dataset.pickle
+    # saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
 
-    # Remove unwanted features
-    # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
+    # # Remove unwanted features
+    # # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
 
-    # Convert all files to psv in test folder (for evaluation)
-    setup.convert_csv_to_psv(pickle_file='final_dataset.pickle')
+    # # Convert all files to psv in test folder (for evaluation)
+    # setup.convert_csv_to_psv(pickle_file='final_dataset.pickle')

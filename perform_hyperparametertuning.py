@@ -20,20 +20,20 @@ def main(num_samples, max_epochs, gpus_per_trial):
     """
 
     hyperparameters = {
-        "d_model": tune.choice([512, 1024, 2048]),
-        "d_hidden": tune.choice([512, 1024, 2048]),
-        "q": tune.choice([4, 6, 8, 10]),
-        "v": tune.choice([4, 6, 8, 10]),
-        "h": tune.choice([4, 6, 8, 10]),
-        "N": tune.choice([4, 6, 8, 10]),
-        "dropout": tune.loguniform(0.01, 0.5),
+        "d_model": tune.choice([512, 1024]),
+        "d_hidden": tune.choice([512, 1024]),
+        "q": tune.choice([6, 8, 10]),
+        "v": tune.choice([6, 8, 10]),
+        "h": tune.choice([6, 8, 10]),
+        "N": tune.choice([6, 8, 10]),
+        "dropout": tune.loguniform(0.2, 0.5),
         "lr": tune.loguniform(1e-7, 1e-3),
         "batch_size": tune.choice([64, 128, 256]),
         # 'w1': tune.loguniform(0.001, 6),
         # 'w2': tune.loguniform(0.001, 6),
-        'epochs': tune.choice([30, 35, 40, 45, 50]),
+        'epochs': tune.choice([30, 40, 50]),
         # 'labelsmoothing': tune.loguniform(0.0001, 0.05),
-        'mask': tune.choice([True, False]),
+        # 'mask': tune.choice([True, False]),
         'majority_samples': tune.loguniform(0.1, 0.40),
         }
 

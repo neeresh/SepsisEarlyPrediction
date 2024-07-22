@@ -12,13 +12,15 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from models.gtn import GatedTransformerNetwork
+# from models.custom_models.gtn import GatedTransformerNetwork
+from models.gtn.transformer import Transformer
 from utils.config import gtn_param
 from utils.loader import make_loader
 from utils.path_utils import project_root
 from utils.plot_metrics import plot_losses_and_accuracies
 
 device = 'cuda'
+config = gtn_param
 
 
 def _setup_destination(current_time):
@@ -60,18 +62,23 @@ def initialize_experiment(data_file):
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
 
+    # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
         manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
-        criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=0.05)
+
+        label_smoothing = 0.05
+        print(f"Using label smoothing of {label_smoothing}")
+        logging.info(f"Using label smoothing of {label_smoothing}")
+        criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
 
     else:
-        criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
+        criterion = nn.CrossEntropyLoss()
 
     # GTN
-    optimizer = optim.Adagrad(model.parameters(), lr=1e-4)  # GTN
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=epochs)
+    optimizer = optim.Adagrad(model.parameters(), lr=config['lr'])  # GTN
+    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=epochs)  # Not in GTN Implementation
 
     train_losses, val_losses, test_losses = [], [], []
     train_accuracies, val_accuracies, test_accuracies = [], [], []
@@ -83,20 +90,19 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
         for inputs, labels in train_loader_tqdm:
-            optimizer.zero_grad()
-
-            inputs, labels = inputs.to(device), labels.to(device)
-            outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'train')
-            loss = criterion(outputs, labels)
 
             optimizer.zero_grad()
+
+            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train')
+            loss = criterion(outputs, labels.to(device))
+
             loss.backward()
             optimizer.step()
 
             running_train_loss += loss.item() * inputs.size(0)
             _, predicted = torch.max(outputs, 1)
             total_train += labels.size(0)
-            correct_train += (predicted == labels).sum().item()
+            correct_train += (predicted.detach().cpu() == labels).sum().item()
 
             # Update tqdm description for training progress
             train_loader_tqdm.set_postfix({
@@ -109,51 +115,53 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         train_losses.append(epoch_train_loss)
         train_accuracies.append(epoch_train_accuracy)
 
-        # Validation phase
-        if val_loader:
-            model.eval()
-            running_val_loss = 0.0
-            correct_val, total_val = 0, 0
+        # # Validation phase
+        # if val_loader:
+        #     model.eval()
+        #     running_val_loss = 0.0
+        #     correct_val, total_val = 0, 0
+        #
+        #     with torch.no_grad():
+        #         for inputs, labels in val_loader:
+        #             inputs, labels = inputs.to(device), labels.to(device)
+        #             outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
+        #             loss = criterion(outputs, labels)
+        #             running_val_loss += loss.item() * inputs.size(0)
+        #             _, predicted = torch.max(outputs, 1)
+        #             total_val += labels.size(0)
+        #             correct_val += (predicted.detach().cpu() == labels).sum().item()
+        #
+        #     epoch_val_loss = running_val_loss / len(val_loader.dataset)
+        #     epoch_val_accuracy = correct_val / total_val
+        #     val_losses.append(epoch_val_loss)
+        #     val_accuracies.append(epoch_val_accuracy)
+        # else:
+        #     epoch_val_loss = "N/A"
+        #     epoch_val_accuracy = "N/A"
 
-            with torch.no_grad():
-                for inputs, labels in val_loader:
-                    inputs, labels = inputs.to(device), labels.to(device)
-                    outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
-                    loss = criterion(outputs, labels)
-                    running_val_loss += loss.item() * inputs.size(0)
-                    _, predicted = torch.max(outputs, 1)
-                    total_val += labels.size(0)
-                    correct_val += (predicted == labels).sum().item()
-
-            epoch_val_loss = running_val_loss / len(val_loader.dataset)
-            epoch_val_accuracy = correct_val / total_val
-            val_losses.append(epoch_val_loss)
-            val_accuracies.append(epoch_val_accuracy)
-        else:
-            epoch_val_loss = "N/A"
-            epoch_val_accuracy = "N/A"
+        epoch_val_loss = "N/A"  # Remove when uncommenting above code
+        epoch_val_accuracy = "N/A"  # Remove when uncommenting above code
 
         # Testing phase
-        model.eval()
         running_test_loss = 0.0
         correct_test, total_test = 0, 0
 
         with torch.no_grad():
+            model.eval()
             for inputs, labels in test_loader:
-                inputs, labels = inputs.to(device), labels.to(device)
-                outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
-                loss = criterion(outputs, labels)
+                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test')
+                loss = criterion(outputs, labels.to(device))
                 running_test_loss += loss.item() * inputs.size(0)
                 _, predicted = torch.max(outputs, 1)
                 total_test += labels.size(0)
-                correct_test += (predicted == labels).sum().item()
+                correct_test += (predicted.detach().cpu() == labels).sum().item()
 
         epoch_test_loss = running_test_loss / len(test_loader.dataset)
         epoch_test_accuracy = correct_test / total_test
         test_losses.append(epoch_test_loss)
         test_accuracies.append(epoch_test_accuracy)
 
-        scheduler.step()
+        # scheduler.step()  # Not in GTN Implementation
 
         message = f"Epoch {epoch + 1}/{epochs} - " \
                   f"Train Loss: {epoch_train_loss:.4f}, Train Acc: {epoch_train_accuracy:.4f}, " \
@@ -163,26 +171,34 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name="./saved_models/gtn/gtn_final.pkl")
+    save_model(model, model_name=f"./saved_models/gtn/gtn_final_{config['num_epochs']}.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
             "test_accuracy": test_accuracies}
 
 
-def save_model(model, model_name="model_gtn.pkl"):
+def save_model(model, model_name):
     logging.info(f"Saving the model with model_name: {model_name}")
+
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
     torch.save(model.state_dict(), model_name)
+
     logging.info(f"Saving successfull!!!")
 
 
-def load_model(model, model_name="model_gtn.pkl"):
+def load_model(model, model_name):
+
+    device = 'cuda'
     print(f"Loading {model_name} GTN model...")
     logging.info(f"Loading GTN model...")
     model.load_state_dict(torch.load(model_name))
+
     print(f"Model is set to eval() mode...")
     logging.info(f"Model is set to eval() mode...")
     model.eval()
+
     print(f"Model is on the deivce: {device}")
     logging.info(f"Model is on the deivce: {device}")
     model.to(device)
@@ -192,22 +208,12 @@ def load_model(model, model_name="model_gtn.pkl"):
 
 if __name__ == '__main__':
 
+    print(f"Using {torch.cuda.device_count()} GPUs...")
+    logging.info(f"Using {torch.cuda.device_count()} GPUs...")
+
     # Getting Data and Loaders
     data_file = "final_dataset.pickle"
     training_examples, lengths_list, is_sepsis, writer, destination_path = initialize_experiment(data_file)
-
-    # # Default
-    # class_0_weight = 40336 / (37404 * 2)  # 37404
-    # class_1_weight = 40336 / (2932 * 2)
-    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-    #                                                                        batch_size=128, mode='padding')
-
-    # Reducing the samples to have balanced dataset
-
-    # batch_size = 64 * torch.cuda.device_count()
-    batch_size = 128 * torch.cuda.device_count()
-    print(f"Batch size: {batch_size}")
-    logging.info(f"Batch size: {batch_size}")
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
@@ -218,18 +224,23 @@ if __name__ == '__main__':
     print(f"Number of positive samples: {len(positive_sepsis_idxs)}")
     print(f"Number of negative samples: {len(negative_sepsis_idxs)}")
 
+    # Reducing the samples to have balanced dataset
+    batch_size = config['batch_size'] * torch.cuda.device_count()
+    print(f"Batch size: {batch_size}")
+    logging.info(f"Batch size: {batch_size}")
+
+    # Splitting dataset into train and test
     print(f"Total samples: {len(all_samples)}")
     train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
     train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
                                                                            batch_size=batch_size, mode='padding',
-                                                                           num_workers=8, train_indicies=train_indicies,
+                                                                           num_workers=4, train_indicies=train_indicies,
                                                                            test_indicies=test_indicies)
 
-    config = gtn_param
-    # d_input: 336, d_channel: 191, d_output: 2
+    # Model's input shape
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
     print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
-    num_epochs = 30
+    num_epochs = config['num_epochs']
 
     print(d_input, d_channel, d_output)
 
@@ -237,15 +248,15 @@ if __name__ == '__main__':
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
     logging.info(f"Number of epochs: {num_epochs}")
 
-    model = GatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+    model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
                                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                     pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    # model = nn.DataParallel(model)
+    model = nn.DataParallel(model)
 
-    class_0_weight = len(all_samples) / (len(negative_sepsis_idxs) * d_output)
-    class_1_weight = len(all_samples) / (len(positive_sepsis_idxs) * d_output)
+    # class_0_weight = len(all_samples) / (len(negative_sepsis_idxs) * d_output)
+    # class_1_weight = len(all_samples) / (len(positive_sepsis_idxs) * d_output)
     # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
     #                       class_1_weight=class_1_weight, epochs=num_epochs)
 
@@ -256,10 +267,10 @@ if __name__ == '__main__':
         'test_accuracy']
 
     if 'physionet2019' in destination_path:  # When using Unity
-        # Saving in my space
-        save_path = './data/logs'
+
+        # Saving Locally
         plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
-                                   save_path=save_path)  # Local
+                                   save_path='./data/logs')  # Local
 
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
                                save_path=destination_path)
