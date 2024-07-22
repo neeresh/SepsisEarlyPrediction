@@ -30,7 +30,7 @@ def train_sepsis(hyperparameters=None):
     model = GatedTransformerNetwork(d_model=hyperparameters['d_model'], d_input=d_input, d_channel=d_channel,
                                     d_output=d_output, d_hidden=hyperparameters['d_hidden'], q=hyperparameters['q'],
                                     v=hyperparameters['v'], h=hyperparameters['h'], N=hyperparameters['N'],
-                                    dropout=hyperparameters['dropout'], pe=config['pe'], mask=hyperparameters['mask'],
+                                    dropout=hyperparameters['dropout'], pe=config['pe'], mask=config['mask'],
                                     device=device).to(device)
     
     if torch.cuda.is_available():
