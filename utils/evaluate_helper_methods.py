@@ -6,6 +6,7 @@ from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, s
 from train_gtn import load_model
 from models.custom_models.gtn import GatedTransformerNetwork  # Custom GTN
 from models.custom_models.modified_gtn import ModifiedGatedTransformerNetwork  # Modified GTN
+from models.custom_models.gtn_mask import MaskedGatedTransformerNetwork
 from models.gtn.transformer import Transformer  # Original GTN
 from utils.helpers import get_features
 
@@ -72,6 +73,16 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                     pe=config['pe'], mask=config['mask'], device=device).to(device)
+
+        return load_model(model, model_name)
+
+    elif pre_model == 'masked_gtn':
+        print(f"Loading from {model_name}...")
+        print("Loading modified gtn model")
+        model = MaskedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                                                d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                                                v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                                                pe=config['pe'], mask=config['mask'], device=device).to(device)
 
         return load_model(model, model_name)
 

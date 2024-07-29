@@ -205,14 +205,32 @@ def preprocessing(patient_data):
     return patient_data
 
 
-def pad_rows(patient_data):
+# def pad_rows(patient_data):
+#
+#     max_rows = 336
+#     num_features = patient_data.shape[1]
+#     if len(patient_data) < max_rows:
+#         padding = np.zeros((max_rows - len(patient_data), num_features))
+#         patient_data = np.vstack((patient_data.values, padding)).astype(np.float32)
+#     else:
+#         patient_data = patient_data.values.astype(np.float32)
+#
+#     return patient_data
 
+def pad_rows(patient_data):
     max_rows = 336
     num_features = patient_data.shape[1]
+
     if len(patient_data) < max_rows:
         padding = np.zeros((max_rows - len(patient_data), num_features))
-        patient_data = np.vstack((patient_data.values, padding)).astype(np.float32)
-    else:
-        patient_data = patient_data.values.astype(np.float32)
+        patient_data_padded = np.vstack((patient_data.values, padding)).astype(np.float32)
 
-    return patient_data
+        # Creating the mask
+        mask = np.ones((max_rows, num_features), dtype=bool)
+        mask[len(patient_data):, :] = False  # Mark padded rows as False
+    else:
+        patient_data_padded = patient_data.values.astype(np.float32)
+        mask = np.ones_like(patient_data_padded, dtype=bool)  # No padding, mask all True
+
+    return patient_data_padded, mask
+

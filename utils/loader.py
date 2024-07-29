@@ -13,6 +13,23 @@ from utils.path_utils import project_root
 from torch.nn.utils.rnn import pad_sequence
 import torch
 
+lgbm_features = ['Temp', 'SBP', 'EtCO2', 'FiO2', 'pH', 'PaCO2', 'BUN', 'Alkalinephos', 'Calcium',
+                 'Chloride', 'Creatinine', 'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium',
+                 'Bilirubin_total', 'Hct', 'Hgb', 'PTT', 'WBC', 'Fibrinogen', 'Platelets', 'Age',
+                 'HospAdmTime', 'ICULOS', 'interval_f1_O2Sat', 'interval_f1_Temp', 'interval_f2_SBP',
+                 'interval_f1_DBP', 'interval_f2_DBP', 'interval_f1_Resp', 'interval_f2_Resp',
+                 'interval_f1_EtCO2', 'interval_f1_HCO3', 'interval_f1_FiO2', 'interval_f2_FiO2',
+                 'interval_f1_PaCO2', 'interval_f2_PaCO2', 'interval_f2_SaO2', 'interval_f2_AST',
+                 'diff_f_BUN', 'interval_f1_Calcium', 'interval_f2_Calcium',
+                 'diff_f_Calcium', 'diff_f_Creatinine', 'interval_f1_Glucose',
+                 'diff_f_Glucose', 'interval_f1_Lactate', 'interval_f2_Lactate',
+                 'diff_f_Magnesium', 'interval_f1_Phosphate', 'diff_f_Phosphate',
+                 'interval_f1_Potassium', 'interval_f1_Bilirubin_total',
+                 'interval_f1_Hct', 'diff_f_Hct', 'diff_f_Hgb', 'interval_f2_PTT',
+                 'diff_f_PTT', 'diff_f_WBC', 'diff_f_Platelets', 'HR_max', 'HR_mean',
+                 'HR_std', 'O2Sat_max', 'O2Sat_mean', 'SBP_mean', 'MAP_max',
+                 't_suspicion']  # Total: 70
+
 
 def collate_fn(batch):
     # Sequeneces and Lengths
@@ -136,24 +153,27 @@ class DatasetWithPaddingMasking(Dataset):
         self.data, self.labels, self.mask = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
 
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
+
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels, masks = [], [], []
+
         # max_time_step = max(lengths_list)
         max_time_step = 336
         for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...",
                                               total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
-            pad = (max_time_step - len(patient_data), 0)
+            original_length = len(patient_data)
+            pad = (max_time_step - original_length, 0)
             patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
 
             # Creating mask
             # Padding real data with True and padded data with False
-            mask = np.ones_like(patient_data)
-            mask[pad[0]:, :] = 0  # Mask the padded elements
+            mask = np.ones((max_time_step, patient_data.shape[1]), dtype=bool)
+            mask[original_length:, :] = False  # Mask the padded elements
 
             data.append(torch.from_numpy(patient_data))
             labels.append(sepsis)
-            masks.append(torch.from_numpy(mask.astype('bool')))
+            masks.append(torch.from_numpy(mask))
 
         logging.info(f"Total number of samples after applying window method: ({len(data)})")
         logging.info(f"Distribution of Sepsis:\n{pd.Series(labels).value_counts()}")
@@ -181,9 +201,9 @@ def get_train_test_indicies():
 
 def get_train_val_test_indices():
     is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None)
-    assert len(is_sepsis_file) == 40336, f"Check the input and output size"
-    train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
+    assert len(is_sepsis_file) == 40336, f"is_sepsis.txt didn't load properly"
 
+    train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
     train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
 
     train_indices = train.index.values
@@ -201,8 +221,9 @@ class DatasetWithPaddingAndLengths(Dataset):
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels, lengths = [], [], []
         max_time_step = 336
-        for patient_data, sepsis, length in tqdm.tqdm(zip(training_examples_list, is_sepsis, lengths_list), desc="Padding...",
-                                              total=len(training_examples_list)):
+        for patient_data, sepsis, length in tqdm.tqdm(zip(training_examples_list, is_sepsis, lengths_list),
+                                                      desc="Padding...",
+                                                      total=len(training_examples_list)):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             pad = (max_time_step - len(patient_data), 0)
             patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
@@ -259,28 +280,87 @@ class DatasetWithPaddingAndLengths(Dataset):
 
 
 def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=4, train_indicies=None,
-                test_indicies=None):
+                test_indicies=None, val_indicies=None, select_important_features=False, include_val=False):
 
+    # Loading data from given indicies
     if train_indicies is None and test_indicies is None:
-        print("Loading from pre-defined indicies")
-        train_indicies, test_indicies = get_train_test_indicies()
+        print("Loading data from pre-defined indicies")
+        # Checking for validation set
+        if include_val:
+            print(f"Creating train, val and test sets.")
+            logging.info(f"Creating train, val and test sets.")
+            train_indicies, val_indicies, test_indicies = get_train_val_test_indices()
+        else:
+            print(f"Creating train and test sets.")
+            logging.info(f"Creating train and test sets.")
+            train_indicies, test_indicies = get_train_test_indicies()
 
-    train_samples = [examples[idx] for idx in train_indicies]
-    test_samples = [examples[idx] for idx in test_indicies]
+    # Loading default data and using entire indicies
+    else:
+        print("Loading train and test from given indicies")
+        if include_val:
+            print(f"Creating train, val and test sets.")
+            logging.info(f"Creating train, val and test sets.")
 
-    train_lengths_list = [lengths_list[idx] for idx in train_indicies]
-    test_lengths_list = [lengths_list[idx] for idx in test_indicies]
+    # If validation set is required, load train, val, and test
+    if include_val:
+        train_samples = [examples[idx] for idx in train_indicies]
+        val_samples = [examples[idx] for idx in val_indicies]
+        test_samples = [examples[idx] for idx in test_indicies]
 
-    is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
-    is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+        train_lengths_list = [lengths_list[idx] for idx in train_indicies]
+        val_lengths_list = [lengths_list[idx] for idx in val_indicies]
+        test_lengths_list = [lengths_list[idx] for idx in test_indicies]
 
+        is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
+        is_sepsis_val = [is_sepsis[idx] for idx in val_indicies]
+        is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+
+    # When validation set is not required, load train and test
+    else:
+        train_samples = [examples[idx] for idx in train_indicies]
+        test_samples = [examples[idx] for idx in test_indicies]
+
+        train_lengths_list = [lengths_list[idx] for idx in train_indicies]
+        test_lengths_list = [lengths_list[idx] for idx in test_indicies]
+
+        is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
+        is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+
+    # Select features that are important
+    if select_important_features:
+        print(f"Selecting important features: Original no.: {train_samples[0].shape[1]}")
+
+        train_samples = [patient_data[lgbm_features + ['PatientID', 'SepsisLabel']] for patient_data in train_samples]
+        # If validation set is required, filter features.
+        if include_val:
+            val_samples = [patient_data[lgbm_features + ['PatientID', 'SepsisLabel']] for patient_data in val_samples]
+        test_samples = [patient_data[lgbm_features + ['PatientID', 'SepsisLabel']] for patient_data in test_samples]
+
+        print(f"Selected important features: Now: {train_samples[0].shape[1]}")
+
+    # Operations on dataset
     if mode == "window":
         train_dataset = DatasetWithWindows(training_examples_list=train_samples, lengths_list=train_lengths_list,
                                            is_sepsis=is_sepsis_train, window_size=8, step_size=6)
         test_dataset = DatasetWithWindows(training_examples_list=test_samples, lengths_list=test_lengths_list,
                                           is_sepsis=is_sepsis_test, window_size=8, step_size=6)
+
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+        if include_val:
+            val_dataset = DatasetWithWindows(training_examples_list=val_samples, lengths_list=val_lengths_list,
+                                             is_sepsis=is_sepsis_val, window_size=8, step_size=6)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+            logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
+
+            logging.info(f"Num of training examples: {len(train_dataset)}")
+            logging.info(f"Num of validation examples: {len(val_dataset)}")
+            logging.info(f"Num of test examples: {len(test_dataset)}")
+
+            return train_loader, val_loader, test_loader, train_indicies, val_indicies, test_indicies
 
         logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
 
@@ -293,6 +373,17 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
+        if include_val:
+            val_dataset = DatasetWithPadding(training_examples_list=val_samples, lengths_list=val_lengths_list,
+                                             is_sepsis=is_sepsis_val, )
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+            logging.info(f"Num of training examples: {len(train_dataset)}")
+            logging.info(f"Num of validation examples: {len(val_dataset)}")
+            logging.info(f"Num of test examples: {len(test_dataset)}")
+
+            return train_loader, val_loader, test_loader, train_indicies, val_indicies, test_indicies
+
     elif mode == "default":
         train_dataset = DefaultDataset(training_examples_list=train_samples, lengths_list=train_lengths_list,
                                        is_sepsis=is_sepsis_train)
@@ -304,6 +395,19 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
                                  collate_fn=collate_fn)
 
+        if include_val:
+            val_dataset = DatasetWithPadding(training_examples_list=val_samples, lengths_list=val_lengths_list,
+                                             is_sepsis=is_sepsis_val, window_size=8, step_size=6)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+            logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
+
+            logging.info(f"Num of training examples: {len(train_dataset)}")
+            logging.info(f"Num of validation examples: {len(val_dataset)}")
+            logging.info(f"Num of test examples: {len(test_dataset)}")
+
+            return train_loader, val_loader, test_loader, train_indicies, val_indicies, test_indicies
+
     elif mode == "padding_masking":
         train_dataset = DatasetWithPaddingMasking(training_examples_list=train_samples, lengths_list=train_lengths_list,
                                                   is_sepsis=is_sepsis_train)
@@ -313,15 +417,38 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
+        if include_val:
+            val_dataset = DatasetWithPaddingMasking(training_examples_list=val_samples, lengths_list=val_lengths_list,
+                                             is_sepsis=is_sepsis_val, )
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+            logging.info(f"Num of training examples: {len(train_dataset)}")
+            logging.info(f"Num of test examples: {len(test_dataset)}")
+
+            return train_loader, val_loader, test_loader, train_indicies, val_indicies, test_indicies
+
     elif mode == "padding_and_lengths":
-        train_dataset = DatasetWithPaddingAndLengths(training_examples_list=train_samples, lengths_list=train_lengths_list,
-                                           is_sepsis=is_sepsis_train)
+        train_dataset = DatasetWithPaddingAndLengths(training_examples_list=train_samples,
+                                                     lengths_list=train_lengths_list,
+                                                     is_sepsis=is_sepsis_train)
         test_dataset = DatasetWithPaddingAndLengths(training_examples_list=test_samples, lengths_list=test_lengths_list,
-                                          is_sepsis=is_sepsis_test)
+                                                    is_sepsis=is_sepsis_test)
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
         logging.info(f"Batch size is {batch_size}")
+
+        if include_val:
+            val_dataset = DatasetWithPaddingAndLengths(training_examples_list=val_samples, lengths_list=val_lengths_list,
+                                             is_sepsis=is_sepsis_val, )
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+            # logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")
+
+            logging.info(f"Num of training examples: {len(train_dataset)}")
+            logging.info(f"Num of test examples: {len(test_dataset)}")
+
+            return train_loader, val_loader, test_loader, train_indicies, val_indicies, test_indicies
 
     logging.info(f"Num of training examples: {len(train_dataset)}")
     logging.info(f"Num of test examples: {len(test_dataset)}")
@@ -330,7 +457,6 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
 
 
 def initialize_experiment(data_file):
-
     data_file = "final_dataset.pickle"
 
     print(f"Dataset used: {data_file}")
@@ -345,7 +471,6 @@ def initialize_experiment(data_file):
         is_sepsis = [int(is_sep) for is_sep in f.read().splitlines()]
 
     return training_examples, lengths_list, is_sepsis
-
 
 # if __name__ == '__main__':
 #     training_examples, lengths_list, is_sepsis = initialize_experiment()
