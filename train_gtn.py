@@ -61,7 +61,6 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
-
     # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
@@ -90,7 +89,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
         for inputs, labels in train_loader_tqdm:
-
             optimizer.zero_grad()
 
             outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train')
@@ -115,32 +113,32 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         train_losses.append(epoch_train_loss)
         train_accuracies.append(epoch_train_accuracy)
 
-        # # Validation phase
-        # if val_loader:
-        #     model.eval()
-        #     running_val_loss = 0.0
-        #     correct_val, total_val = 0, 0
-        #
-        #     with torch.no_grad():
-        #         for inputs, labels in val_loader:
-        #             inputs, labels = inputs.to(device), labels.to(device)
-        #             outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
-        #             loss = criterion(outputs, labels)
-        #             running_val_loss += loss.item() * inputs.size(0)
-        #             _, predicted = torch.max(outputs, 1)
-        #             total_val += labels.size(0)
-        #             correct_val += (predicted.detach().cpu() == labels).sum().item()
-        #
-        #     epoch_val_loss = running_val_loss / len(val_loader.dataset)
-        #     epoch_val_accuracy = correct_val / total_val
-        #     val_losses.append(epoch_val_loss)
-        #     val_accuracies.append(epoch_val_accuracy)
-        # else:
-        #     epoch_val_loss = "N/A"
-        #     epoch_val_accuracy = "N/A"
+        # Validation phase
+        if val_loader:
+            model.eval()
+            running_val_loss = 0.0
+            correct_val, total_val = 0, 0
 
-        epoch_val_loss = "N/A"  # Remove when uncommenting above code
-        epoch_val_accuracy = "N/A"  # Remove when uncommenting above code
+            with torch.no_grad():
+                for inputs, labels in val_loader:
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
+                    loss = criterion(outputs, labels)
+                    running_val_loss += loss.item() * inputs.size(0)
+                    _, predicted = torch.max(outputs, 1)
+                    total_val += labels.size(0)
+                    correct_val += (predicted.detach().cpu() == labels).sum().item()
+
+            epoch_val_loss = running_val_loss / len(val_loader.dataset)
+            epoch_val_accuracy = correct_val / total_val
+            val_losses.append(epoch_val_loss)
+            val_accuracies.append(epoch_val_accuracy)
+        else:
+            epoch_val_loss = "N/A"
+            epoch_val_accuracy = "N/A"
+
+        # epoch_val_loss = "N/A"  # Remove when uncommenting above code
+        # epoch_val_accuracy = "N/A"  # Remove when uncommenting above code
 
         # Testing phase
         running_test_loss = 0.0
@@ -171,7 +169,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/gtn/gtn_final_{config['num_epochs']}.pkl")
+    save_model(model, model_name=f"./saved_models/gtn/gtn_final_{config['num_epochs']}_val.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -189,7 +187,6 @@ def save_model(model, model_name):
 
 
 def load_model(model, model_name):
-
     device = 'cuda'
     print(f"Loading {model_name} GTN model...")
     logging.info(f"Loading GTN model...")
@@ -231,11 +228,20 @@ if __name__ == '__main__':
 
     # Splitting dataset into train and test
     print(f"Total samples: {len(all_samples)}")
-    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=batch_size, mode='padding',
-                                                                           num_workers=4, train_indicies=train_indicies,
-                                                                           test_indicies=test_indicies)
+
+    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
+    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
+
+    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
+    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+    #                                                                        batch_size=batch_size, mode='padding',
+    #                                                                        num_workers=4, train_indicies=train_indicies,
+    #                                                                        test_indicies=test_indicies, include_val=True)
+
+    train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
+        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding', num_workers=4,
+        train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
+        select_important_features=False, include_val=True)
 
     # Model's input shape
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
@@ -249,9 +255,9 @@ if __name__ == '__main__':
     logging.info(f"Number of epochs: {num_epochs}")
 
     model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                                    d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                                    v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                    pe=config['pe'], mask=config['mask'], device=device).to(device)
+                        d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                        v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                        pe=config['pe'], mask=config['mask'], device=device).to(device)
 
     model = nn.DataParallel(model)
 
@@ -260,8 +266,44 @@ if __name__ == '__main__':
     # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
     #                       class_1_weight=class_1_weight, epochs=num_epochs)
 
-    metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs)
 
+    # Save test files in /localhost/.../test_data
+    import glob
+
+    test_data_path = os.path.join(project_root(), 'data', 'test_data')
+    os.makedirs(test_data_path, exist_ok=True)
+
+    # Removing all files before uploading test data
+    for file_path in glob.glob(f"{test_data_path}/*"):
+        os.remove(file_path)
+
+    # Gathering all files
+    files_names = []
+    input_directory = [
+        os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setA'),
+        os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training', 'training_setB')
+    ]
+
+    # Loading all file names and sort
+    for dir in input_directory:
+        for f in os.listdir(dir):
+            file_path = os.path.join(dir, f)
+            if os.path.isfile(file_path) and not f.lower().startswith('.') and f.lower().endswith('psv'):
+                files_names.append(file_path)
+
+    files_names.sort()
+
+    # Saving test data
+    for idx in tqdm.tqdm(test_indicies, desc="Saving test data in 'test_data' directory", total=len(test_indicies)):
+        patient_file = files_names[idx]
+        patient_name = os.path.basename(patient_file)
+        patient_data = pd.read_csv(patient_file, delimiter='|')
+
+        output_file_path = os.path.join(test_data_path, patient_name)
+        patient_data.to_csv(output_file_path, index=False, sep='|')
+
+    # Metrics
     train_losses, val_losses, test_losses, = metrics['train_loss'], metrics['val_loss'], metrics['test_loss']
     train_accuracies, val_accuracies, test_accuracies = metrics['train_accuracy'], metrics['val_accuracy'], metrics[
         'test_accuracy']

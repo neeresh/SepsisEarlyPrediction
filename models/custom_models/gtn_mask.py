@@ -24,10 +24,10 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         self.score = None
 
-    def forward(self, x, stage, mask):  # Added mask here
+    def forward(self, x, stage, padding_mask):  # Added mask here
         batch_size = x.size(0)
         seq_len = x.size(1)
-        
+
         Q = torch.cat(self.w_q(x).chunk(self._h, dim=-1), dim=0)
         K = torch.cat(self.w_k(x).chunk(self._h, dim=-1), dim=0)
         V = torch.cat(self.w_v(x).chunk(self._h, dim=-1), dim=0)
@@ -35,17 +35,19 @@ class MultiHeadAttention(nn.Module):
         score = torch.matmul(Q, K.transpose(-1, -2)) / math.sqrt(self._q)
         self.score = score
 
-        if self.mask and stage == 'train' and mask is not None:  # Added mask here
-            print(mask.shape, score.shape)
-            # mask = mask.repeat(self._h, 1, 1)  # New
-            # print(mask.shape, score.shape, self._h)
-            # score = score.masked_fill(~mask, float('-inf'))  # New
-            mask = mask.unsqueeze(1).expand(batch_size, seq_len, seq_len)
-            mask = mask.repeat(self._h, 1, 1)
-            score = score.masked_fill(~mask, float('-inf'))
-            # mask = torch.ones_like(score[0])
-            # mask = torch.tril(mask, diagonal=0)
-            # score = torch.where(mask > 0, score, torch.Tensor([-2**32+1]).expand_as(score[0]).to(self.device))
+        # Masking future values to calculate attention scores
+        if self.mask and stage == 'train':
+            mask = torch.ones_like(score[0])
+            mask = torch.tril(mask, diagonal=0)
+            score = torch.where(mask > 0, score, torch.Tensor([-2 ** 32 + 1]).expand_as(score[0]).to(self.device))
+
+        # Masking padded rows
+        if padding_mask is not None:
+            mask_expanded = padding_mask.unsqueeze(1).repeat(self._h, 1, 1).to(self.device)
+            mask_expanded = mask_expanded.to(score.dtype)
+            mask_expanded = mask_expanded.masked_fill(mask_expanded == 0, float('-inf'))
+
+            score = score + mask_expanded
 
         score = F.softmax(score, dim=-1)
 
@@ -64,7 +66,6 @@ class FeedForward(nn.Module):
         self.linear_2 = torch.nn.Linear(d_hidden, d_model)
 
     def forward(self, x):
-
         x = self.linear_1(x)
         x = F.relu(x)
         x = self.linear_2(x)
@@ -74,7 +75,7 @@ class FeedForward(nn.Module):
 
 class Encoder(nn.Module):
     def __init__(self, d_model: int, d_hidden: int, q: int, v: int, h: int, device: str, mask: bool = False,
-                dropout: float = 0.1):
+                 dropout: float = 0.1):
         super(Encoder, self).__init__()
         self.mha = MultiHeadAttention(d_model=d_model, q=q, v=v, h=h, mask=mask, device=device, dropout=dropout)
         self.feedforward = FeedForward(d_model=d_model, d_hidden=d_hidden)
@@ -102,9 +103,9 @@ class MaskedGatedTransformerNetwork(nn.Module):
         super(MaskedGatedTransformerNetwork, self).__init__()
 
         self.encoder_list_1 = nn.ModuleList([Encoder(d_model=d_model, d_hidden=d_hidden, q=q, v=v, h=h, mask=mask,
-                                                    dropout=dropout, device=device) for _ in range(N)])
+                                                     dropout=dropout, device=device) for _ in range(N)])
         self.encoder_list_2 = nn.ModuleList([Encoder(d_model=d_model, d_hidden=d_hidden, q=q, v=v, h=h, mask=mask,
-                                                    dropout=dropout, device=device) for _ in range(N)])
+                                                     dropout=dropout, device=device) for _ in range(N)])
 
         self.embedding_channel = nn.Linear(d_channel, d_model)
         self.embedding_input = nn.Linear(d_input, d_model)
@@ -134,14 +135,14 @@ class MaskedGatedTransformerNetwork(nn.Module):
             encoding_1 = encoding_1 + pe
 
         for encoder in self.encoder_list_1:
-            encoding_1, score_input = encoder(encoding_1, stage, mask)  #  Added mask here
+            encoding_1, score_input = encoder(encoding_1, stage, mask)  # Added mask here
 
         encoding_2 = self.embedding_input(x.transpose(-1, -2))
         channel_to_gather = encoding_2
 
         for encoder in self.encoder_list_2:
-            encoding_2, score_channel = encoder(encoding_2, stage, mask)  # Added mask here
- 
+            encoding_2, score_channel = encoder(encoding_2, stage, None)
+
         encoding_1 = encoding_1.reshape(encoding_1.shape[0], -1)
         encoding_2 = encoding_2.reshape(encoding_2.shape[0], -1)
 

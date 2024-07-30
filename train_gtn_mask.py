@@ -65,6 +65,7 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
+
     # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
@@ -91,10 +92,10 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         correct_train, total_train = 0, 0
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
-        for idx, (inputs, labels, lengths) in enumerate(train_loader_tqdm):
+        for idx, (inputs, labels, padded_masks) in enumerate(train_loader_tqdm):
             optimizer.zero_grad()
 
-            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), lengths, 'train')
+            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train', padded_masks)
             loss = criterion(outputs, labels.to(device))
 
             loss.backward()
@@ -123,9 +124,9 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
             correct_val, total_val = 0, 0
 
             with torch.no_grad():
-                for idx, (inputs, labels, lengths) in enumerate(val_loader):
+                for idx, (inputs, labels, padded_masks) in enumerate(val_loader):
                     inputs, labels = inputs.to(device), labels.to(device)
-                    outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), lengths, 'test')
+                    outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test', padded_masks)
                     loss = criterion(outputs, labels)
                     running_val_loss += loss.item() * inputs.size(0)
                     _, predicted = torch.max(outputs, 1)
@@ -149,8 +150,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         with torch.no_grad():
             model.eval()
-            for idx, (inputs, labels, lengths) in enumerate(test_loader):
-                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), lengths, 'test')
+            for idx, (inputs, labels, padded_masks) in enumerate(test_loader):
+                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test', padded_masks)
                 loss = criterion(outputs, labels.to(device))
                 running_test_loss += loss.item() * inputs.size(0)
                 _, predicted = torch.max(outputs, 1)
@@ -235,7 +236,7 @@ if __name__ == '__main__':
     val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
 
     train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
-        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding_and_lengths', num_workers=4,
+        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding_masking', num_workers=4,
         train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
         select_important_features=False, include_val=True)
 

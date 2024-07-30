@@ -65,6 +65,7 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
+
     # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")

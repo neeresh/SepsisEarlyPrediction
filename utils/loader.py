@@ -32,7 +32,7 @@ lgbm_features = ['Temp', 'SBP', 'EtCO2', 'FiO2', 'pH', 'PaCO2', 'BUN', 'Alkaline
 
 
 def collate_fn(batch):
-    # Sequeneces and Lengths
+    # Sequences and Lengths
     sequences, labels = zip(*batch)
     lengths = torch.tensor([len(seq) for seq in sequences])
 
@@ -148,32 +148,78 @@ class DefaultDataset(Dataset):
         return self.data[item], self.labels[item]
 
 
+# class DatasetWithPaddingMasking(Dataset):
+#     def __init__(self, training_examples_list, lengths_list, is_sepsis):
+#         self.data, self.labels, self.mask = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
+#
+#     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
+#
+#         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
+#         data, labels, masks = [], [], []
+#
+#         # max_time_step = max(lengths_list)
+#         max_time_step = 336
+#         for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...",
+#                                               total=len(training_examples_list)):
+#             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+#             original_length = len(patient_data)
+#             pad = (max_time_step - original_length, 0)
+#             patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
+#
+#             # Creating mask
+#             # Padding real data with True and padded data with False
+#             mask = np.ones((max_time_step, patient_data.shape[1]), dtype=bool)
+#             mask[original_length:, :] = False  # Mask the padded elements
+#
+#             data.append(torch.from_numpy(patient_data))
+#             labels.append(sepsis)
+#             masks.append(torch.from_numpy(mask))
+#
+#         logging.info(f"Total number of samples after applying window method: ({len(data)})")
+#         logging.info(f"Distribution of Sepsis:\n{pd.Series(labels).value_counts()}")
+#
+#         return data, labels, masks
+#
+#     def __len__(self):
+#         return len(self.data)
+#
+#     def __getitem__(self, item):
+#         return self.data[item], self.labels[item], self.mask[item]
+
+import torch
+import numpy as np
+import logging
+import tqdm
+from torch.utils.data import Dataset
+
+
 class DatasetWithPaddingMasking(Dataset):
     def __init__(self, training_examples_list, lengths_list, is_sepsis):
         self.data, self.labels, self.mask = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
 
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
-
         logging.info(f"Input features ({len(training_examples_list[0].columns)}): {training_examples_list[0].columns}")
         data, labels, masks = [], [], []
 
-        # max_time_step = max(lengths_list)
-        max_time_step = 336
-        for patient_data, sepsis in tqdm.tqdm(zip(training_examples_list, is_sepsis), desc="Padding...",
-                                              total=len(training_examples_list)):
+        max_time_step = 336  # The maximum sequence length for padding
+
+        for patient_data, length, sepsis in tqdm.tqdm(zip(training_examples_list, lengths_list, is_sepsis),
+                                                      desc="Padding...", total=len(training_examples_list)):
+
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             original_length = len(patient_data)
-            pad = (max_time_step - original_length, 0)
-            patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
+            padding_length = max_time_step - original_length
+            patient_data = np.pad(patient_data, pad_width=((0, padding_length), (0, 0)), mode='constant').astype(np.float32)
 
-            # Creating mask
-            # Padding real data with True and padded data with False
-            mask = np.ones((max_time_step, patient_data.shape[1]), dtype=bool)
-            mask[original_length:, :] = False  # Mask the padded elements
+            # mask = 1 for valid entries, 0 for padding
+            mask = np.ones((max_time_step,), dtype=bool)
+            if padding_length > 0:
+                mask[original_length:] = False
 
+            # Convert to tensors
             data.append(torch.from_numpy(patient_data))
             labels.append(sepsis)
-            masks.append(torch.from_numpy(mask))
+            masks.append(torch.from_numpy(mask))  # Expand mask to match input shape (max_time_step, 1)
 
         logging.info(f"Total number of samples after applying window method: ({len(data)})")
         logging.info(f"Distribution of Sepsis:\n{pd.Series(labels).value_counts()}")
