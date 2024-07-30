@@ -28,20 +28,20 @@ import pandas as pd
 device = 'cuda'
 
 
-def preprocessing(patient_data):
-    columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
-               'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct',
-               'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct',
-               'Hgb', 'PTT', 'WBC', 'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2', 'HospAdmTime',
-               'ICULOS']
-
-    patient_data = pd.DataFrame(patient_data, columns=columns)
-    patient_data = add_feature_informative_missingness(patient_data)
-    patient_data = fill_missing_values(patient_data)
-    patient_data = add_sliding_features_for_vital_signs(patient_data)
-    patient_data = add_additional_features(patient_data)
-
-    return patient_data
+# def preprocessing(patient_data):
+#     columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
+#                'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Chloride', 'Creatinine', 'Bilirubin_direct',
+#                'Glucose', 'Lactate', 'Magnesium', 'Phosphate', 'Potassium', 'Bilirubin_total', 'TroponinI', 'Hct',
+#                'Hgb', 'PTT', 'WBC', 'Fibrinogen', 'Platelets', 'Age', 'Gender', 'Unit1', 'Unit2', 'HospAdmTime',
+#                'ICULOS']
+#
+#     patient_data = pd.DataFrame(patient_data, columns=columns)
+#     patient_data = add_feature_informative_missingness(patient_data)
+#     patient_data = fill_missing_values(patient_data)
+#     patient_data = add_sliding_features_for_vital_signs(patient_data)
+#     patient_data = add_additional_features(patient_data)
+#
+#     return patient_data
 
 
 def load_model(model, model_name="model_gtn.pkl"):

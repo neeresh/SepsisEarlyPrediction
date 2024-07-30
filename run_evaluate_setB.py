@@ -7,7 +7,7 @@ import torch
 from utils.evaluate_helper_methods import save_challenge_predictions, load_challenge_data, load_sepsis_model
 from utils.path_utils import project_root
 from utils.evaluate_sepsis_score import evaluate_sepsis_score
-from utils.get_true_labels import get_true_labels
+from utils.get_true_labels import get_true_labels, get_true_labels_setB
 
 import torch.nn.functional as F
 from utils.preprocessing import preprocessing, pad_rows
@@ -150,8 +150,8 @@ def evaluate():
 
     # Gathering Files
     input_directory = os.path.join(project_root(), 'physionet.org', 'files',
-                                   'challenge-2019', '1.0.0', 'training', 'training_setA')
-    output_directory = "./predictions/"
+                                   'challenge-2019', '1.0.0', 'training', 'training_setB')
+    output_directory = "./predictions_setB/"
 
     # Test data and true labels are created
     # prepare_test_data()
@@ -207,12 +207,12 @@ def evaluate():
 evaluate()
 
 # Get true labels
-get_true_labels()
+get_true_labels_setB()
 
 # Evaluate true and predicted labels
 
-auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels/',
-                                                                                       prediction_directory='./predictions/')
+auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels_setB/',
+                                                                                       prediction_directory='./predictions_setB/')
 
 print(f"Model's ability to distinguish between positive and negative classes (AUROC): {auroc}")
 print(f"Model's precision-recall trade-off (AUPRC): {auprc}")
