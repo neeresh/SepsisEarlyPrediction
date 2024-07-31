@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Mar 28 01:05:24 2021
+
+@author: Ranak Roy Chowdhury
+"""
 import warnings, pickle, torch, math, os, random, numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
@@ -6,13 +12,110 @@ import models.tarnet.multitask_transformer_class as multitask_transformer_class
 warnings.filterwarnings("ignore")
 
 
+# loading optimized hyperparameters
+def get_optimized_hyperparameters(dataset):
+    path = './hyperparameters.pkl'
+    with open(path, 'rb') as handle:
+        all_datasets = pickle.load(handle)
+        if dataset in all_datasets:
+            prop = all_datasets[dataset]
+    return prop
+
+
+# loading user-specified hyperparameters
+def get_user_specified_hyperparameters(args):
+    prop = {}
+    prop['batch'], prop['lr'], prop['nlayers'], prop['emb_size'], prop['nhead'], prop['task_rate'], prop[
+        'masking_ratio'], prop['task_type'] = \
+        args.batch, args.lr, args.nlayers, args.emb_size, args.nhead, args.task_rate, args.masking_ratio, args.task_type
+    return prop
+
+
+# loading fixed hyperparameters
+def get_fixed_hyperparameters(prop, args):
+    prop['lamb'], prop['epochs'], prop['ratio_highest_attention'], prop[
+        'avg'] = args.lamb, args.epochs, args.ratio_highest_attention, args.avg
+    prop['dropout'], prop['nhid'], prop['nhid_task'], prop['nhid_tar'], prop[
+        'dataset'] = args.dropout, args.nhid, args.nhid_task, args.nhid_tar, args.dataset
+    return prop
+
+
+def get_prop(args):
+    # loading optimized hyperparameters
+    # prop = get_optimized_hyperparameters(args.dataset)
+
+    # loading user-specified hyperparameters
+    prop = get_user_specified_hyperparameters(args)
+
+    # loading fixed hyperparameters
+    prop = get_fixed_hyperparameters(prop, args)
+    return prop
+
+
+# def data_loader(dataset, data_path, task_type):
+#     X_train = np.load(os.path.join(data_path + 'X_train.npy'), allow_pickle=True).astype(np.float)
+#     X_test = np.load(os.path.join(data_path + 'X_test.npy'), allow_pickle=True).astype(np.float)
+#
+#     if task_type == 'classification':
+#         y_train = np.load(os.path.join(data_path + 'y_train.npy'), allow_pickle=True)
+#         y_test = np.load(os.path.join(data_path + 'y_test.npy'), allow_pickle=True)
+#     else:
+#         y_train = np.load(os.path.join(data_path + 'y_train.npy'), allow_pickle=True).astype(np.float)
+#         y_test = np.load(os.path.join(data_path + 'y_test.npy'), allow_pickle=True).astype(np.float)
+#
+#     return X_train, y_train, X_test, y_test
+
+
+def make_perfect_batch(X, num_inst, num_samples):
+    extension = np.zeros((num_samples - num_inst, X.shape[1], X.shape[2]))
+    X = np.concatenate((X, extension), axis=0)
+    return X
+
+
+def mean_standardize_fit(X):
+    m1 = np.mean(X, axis=1)
+    mean = np.mean(m1, axis=0)
+
+    s1 = np.std(X, axis=1)
+    std = np.mean(s1, axis=0)
+
+    return mean, std
+
+
+def mean_standardize_transform(X, mean, std):
+    return (X - mean) / std
+
+
+def preprocess(prop, X_train, y_train, X_test, y_test):
+    # mean, std = mean_standardize_fit(X_train)
+    # X_train, X_test = mean_standardize_transform(X_train, mean, std), mean_standardize_transform(X_test, mean, std)
+
+    num_train_inst, num_test_inst = X_train.shape[0], X_test.shape[0]
+    num_train_samples = math.ceil(num_train_inst / prop['batch']) * prop['batch']
+    num_test_samples = math.ceil(num_test_inst / prop['batch']) * prop['batch']
+
+    X_train = make_perfect_batch(X_train, num_train_inst, num_train_samples)
+    X_test = make_perfect_batch(X_test, num_test_inst, num_test_samples)
+
+    X_train_task = torch.as_tensor(X_train).float()
+    X_test = torch.as_tensor(X_test).float()
+
+    if prop['task_type'] == 'classification':
+        y_train_task = torch.as_tensor(y_train)
+        y_test = torch.as_tensor(y_test)
+    else:
+        y_train_task = torch.as_tensor(y_train).float()
+        y_test = torch.as_tensor(y_test).float()
+
+    return X_train_task, y_train_task, X_test, y_test
+
+
 def initialize_training(prop):
     model = multitask_transformer_class.MultitaskTransformerModel(prop['task_type'], prop['device'], prop['nclasses'],
                                                                   prop['seq_len'], prop['batch'], \
                                                                   prop['input_size'], prop['emb_size'], prop['nhead'],
                                                                   prop['nhid'], prop['nhid_tar'], prop['nhid_task'],
                                                                   prop['nlayers'], prop['dropout']).to(prop['device'])
-
     best_model = multitask_transformer_class.MultitaskTransformerModel(prop['task_type'], prop['device'],
                                                                        prop['nclasses'], prop['seq_len'], prop['batch'], \
                                                                        prop['input_size'], prop['emb_size'],
@@ -52,48 +155,6 @@ def random_instance_masking(X, masking_ratio, ratio_highest_attention, instance_
         y_train_tar_masked).float(), torch.as_tensor(y_train_tar_unmasked).float()
 
     return X_train_tar, y_train_tar_masked, y_train_tar_unmasked, boolean_indices_masked, boolean_indices_unmasked
-
-
-def evaluate(y_pred, y, nclasses, criterion, task_type, device, avg):
-    results = []
-
-    if task_type == 'classification':
-        loss = criterion(y_pred.view(-1, nclasses), torch.as_tensor(y, device=device)).item()
-
-        pred, target = y_pred.cpu().data.numpy(), y.cpu().data.numpy()
-        pred = np.argmax(pred, axis=1)
-        acc = accuracy_score(target, pred)
-        prec = precision_score(target, pred, average=avg)
-        rec = recall_score(target, pred, average=avg)
-        f1 = f1_score(target, pred, average=avg)
-
-        results.extend([loss, acc, prec, rec, f1])
-    else:
-        y_pred = y_pred.squeeze()
-        y = torch.as_tensor(y, device=device)
-        rmse = math.sqrt(((y_pred - y) * (y_pred - y)).sum().data / y_pred.shape[0])
-        mae = (torch.abs(y_pred - y).sum().data / y_pred.shape[0]).item()
-        results.extend([rmse, mae])
-    # per_class_results = precision_recall_fscore_support(target, pred, average = None, labels = list(range(0, nclasses)))
-
-    return results
-
-
-def test(model, X, y, batch, nclasses, criterion, task_type, device, avg):
-    model.eval()  # Turn on the evaluation mode
-    num_batches = math.ceil(X.shape[0] / batch)
-
-    output_arr = []
-    with torch.no_grad():
-        for i in range(num_batches):
-            start = int(i * batch)
-            end = int((i + 1) * batch)
-            num_inst = y[start: end].shape[0]
-
-            out = model(torch.as_tensor(X[start: end], device=device), task_type)[0]
-            output_arr.append(out[: num_inst])
-
-    return evaluate(torch.cat(output_arr, 0), y, nclasses, criterion, task_type, device, avg)
 
 
 def compute_tar_loss(model, device, criterion_tar, y_train_tar_masked, y_train_tar_unmasked, batched_input_tar, \
@@ -158,7 +219,7 @@ def multitask_train(model, criterion_tar, criterion_task, optimizer, X_train_tar
 
         # a = list(train_model.parameters())[0].clone()
         loss = prop['task_rate'] * (prop['lamb'] * loss_tar_masked + (1 - prop['lamb']) * loss_tar_unmasked) + (
-                1 - prop['task_rate']) * loss_task
+                    1 - prop['task_rate']) * loss_task
         loss.backward()
         # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
@@ -173,6 +234,48 @@ def multitask_train(model, criterion_tar, criterion_task, optimizer, X_train_tar
 
     instance_weights = torch.cat(attn_arr, axis=0)
     return total_loss_tar_masked, total_loss_tar_unmasked, total_loss_task / y_train_task.shape[0], instance_weights
+
+
+def evaluate(y_pred, y, nclasses, criterion, task_type, device, avg):
+    results = []
+
+    if task_type == 'classification':
+        loss = criterion(y_pred.view(-1, nclasses), torch.as_tensor(y, device=device)).item()
+
+        pred, target = y_pred.cpu().data.numpy(), y.cpu().data.numpy()
+        pred = np.argmax(pred, axis=1)
+        acc = accuracy_score(target, pred)
+        prec = precision_score(target, pred, average=avg)
+        rec = recall_score(target, pred, average=avg)
+        f1 = f1_score(target, pred, average=avg)
+
+        results.extend([loss, acc, prec, rec, f1])
+    else:
+        y_pred = y_pred.squeeze()
+        y = torch.as_tensor(y, device=device)
+        rmse = math.sqrt(((y_pred - y) * (y_pred - y)).sum().data / y_pred.shape[0])
+        mae = (torch.abs(y_pred - y).sum().data / y_pred.shape[0]).item()
+        results.extend([rmse, mae])
+    # per_class_results = precision_recall_fscore_support(target, pred, average = None, labels = list(range(0, nclasses)))
+
+    return results
+
+
+def test(model, X, y, batch, nclasses, criterion, task_type, device, avg):
+    model.eval()  # Turn on the evaluation mode
+    num_batches = math.ceil(X.shape[0] / batch)
+
+    output_arr = []
+    with torch.no_grad():
+        for i in range(num_batches):
+            start = int(i * batch)
+            end = int((i + 1) * batch)
+            num_inst = y[start: end].shape[0]
+
+            out = model(torch.as_tensor(X[start: end], device=device), task_type)[0]
+            output_arr.append(out[: num_inst])
+
+    return evaluate(torch.cat(output_arr, 0), y, nclasses, criterion, task_type, device, avg)
 
 
 def training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train_task, y_train_task,
@@ -202,7 +305,7 @@ def training(model, optimizer, criterion_tar, criterion_task, best_model, best_o
         tar_loss = tar_loss_masked + tar_loss_unmasked
         tar_loss_arr.append(tar_loss)
         task_loss_arr.append(task_loss)
-        print('Epoch: ' + str(epoch) + ', TAR Loss: ' + str(tar_loss), ', TASK Loss: ' + str(task_loss))
+        # print('Epoch: ' + str(epoch) + ', TAR Loss: ' + str(tar_loss), ', TASK Loss: ' + str(task_loss))
 
         # save model and optimizer for lowest training loss on the end task
         if task_loss < min_task_loss:
@@ -220,10 +323,16 @@ def training(model, optimizer, criterion_tar, criterion_task, best_model, best_o
             rmse = test_metrics[0]
             mae = test_metrics[1]
 
+        print(f'Epoch: {epoch}, TAR Loss: {tar_loss}, TASK Loss: {task_loss}, '
+              f'Acc: {acc if prop["task_type"] == "classification" else "N/A"}, '
+              f'RMSE: {rmse if prop["task_type"] == "regression" else "N/A"}, '
+              f'MAE: {mae if prop["task_type"] == "regression" else "N/A"}')
+
     if prop['task_type'] == 'classification':
         print('Dataset: ' + prop['dataset'] + ', Acc: ' + str(acc))
     elif prop['task_type'] == 'regression':
         print('Dataset: ' + prop['dataset'] + ', RMSE: ' + str(rmse) + ', MAE: ' + str(mae))
 
-    del model
-    torch.cuda.empty_cache()
+    # del model
+    # torch.cuda.empty_cache()
+    return model

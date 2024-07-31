@@ -15,7 +15,7 @@ from utils.loader import make_loader
 from utils.path_utils import project_root
 
 from models.tarnet.utils import initialize_training
-from models.tarnet.utils import training
+from models.tarnet.utils import training, preprocess
 
 config = tarnet_param
 
@@ -58,15 +58,43 @@ def initialize_experiment(data_file):
     return training_examples, lengths_list, is_sepsis, writer, destination_path
 
 
+def save_model(model, model_name):
+    logging.info(f"Saving the model with model_name: {model_name}")
+
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+    torch.save(model.state_dict(), model_name)
+
+    logging.info(f"Saving successfull!!!")
+
+
+def load_model(model, model_name):
+    device = 'cuda'
+    print(f"Loading {model_name} GTN model...")
+    logging.info(f"Loading GTN model...")
+    model.load_state_dict(torch.load(model_name))
+
+    print(f"Model is set to eval() mode...")
+    logging.info(f"Model is set to eval() mode...")
+    model.eval()
+
+    print(f"Model is on the deivce: {device}")
+    logging.info(f"Model is on the deivce: {device}")
+    model.to(device)
+
+    return model
+
+
 def get_data_from_loaders(loader):
 
     X_list, y_list = [], []
     for batch in loader:
-        X, y, _ = batch
+        X, y = batch
         X_list.append(X)
         y_list.append(y)
 
-    return torch.cat(X_list, dim=0), torch.cat(y_list, dim=0)
+    # return torch.cat(X_list, dim=0), torch.cat(y_list, dim=0)
+    return np.concatenate(X_list), np.concatenate(y_list)
 
 
 if __name__ == '__main__':
@@ -83,8 +111,8 @@ if __name__ == '__main__':
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
     np.random.shuffle(all_samples)
 
-    print(f"Number of positive samples: {len(positive_sepsis_idxs)}")
-    print(f"Number of negative samples: {len(negative_sepsis_idxs)}")
+    logging.info(f"Number of positive samples: {len(positive_sepsis_idxs)}")
+    logging.info(f"Number of negative samples: {len(negative_sepsis_idxs)}")
 
     # Reducing the samples to have balanced dataset
     batch_size = config['batch'] * torch.cuda.device_count()
@@ -92,19 +120,23 @@ if __name__ == '__main__':
     logging.info(f"Batch size: {batch_size}")
 
     # Splitting dataset into train and test
-    print(f"Total samples: {len(all_samples)}")
+    logging.info(f"Total samples: {len(all_samples)}")
 
     train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
     val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
 
     train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
-        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding_masking', num_workers=4,
+        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding', num_workers=4,
         train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
         select_important_features=False, include_val=True)
 
+    logging.info(f"Number of training samples: {len(train_indicies)}")
+    logging.info(f"Number of validation samples: {len(val_indicies)}")
+    logging.info(f"Number of test samples: {len(test_indicies)}")
+
     # Model's input shape
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
-    print(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
+    logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
     num_epochs = config['epochs']
 
     print(d_input, d_channel, d_output)
@@ -121,15 +153,23 @@ if __name__ == '__main__':
                                       nhid_task=config['nhid_task'], nlayers=config['nlayers'],
                                       dropout=config['dropout'], )
 
-    print(model)
+    logging.info(model)
 
-    # model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer = initialize_training(tarnet_param)
-    #
-    # X_train, y_train = get_data_from_loaders(train_loader)  # torch.Size([8330, 336, 191]) torch.Size([8330])
-    # X_val, y_val = get_data_from_loaders(val_loader)  # torch.Size([1041, 336, 191]) torch.Size([1041])
-    # X_test, y_test = get_data_from_loaders(test_loader)  # torch.Size([1042, 336, 191]) torch.Size([1042])
-    #
-    # print('Training start...')
-    # training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train,
-    #                y_train, X_test, y_test, tarnet_param)
-    # print('Training complete...')
+    model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer = initialize_training(tarnet_param)
+
+    X_train, y_train = get_data_from_loaders(train_loader)  # torch.Size([8330, 336, 191]) torch.Size([8330])
+    X_val, y_val = get_data_from_loaders(val_loader)  # torch.Size([1041, 336, 191]) torch.Size([1041])
+    X_test, y_test = get_data_from_loaders(test_loader)  # torch.Size([1042, 336, 191]) torch.Size([1042])
+
+    # Pre-processing and making perfect batches; here we pad zeros to have equal samples in the last batch
+    X_train, y_train, X_test, y_test = preprocess(tarnet_param, X_train, y_train, X_test, y_test)
+
+    logging.info(f"X_train: {type(X_train)}, y_train: {type(y_train)}")
+    logging.info(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
+
+    logging.info('Training start...')
+    model = training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train,
+                   y_train, X_test, y_test, tarnet_param)
+    logging.info('Training complete...')
+
+    save_model(model, model_name=f"./saved_models/tarnet/tarnet_final_{config['epochs']}_val.pkl")

@@ -1,5 +1,8 @@
+import math
+
 import numpy as np
 import pandas as pd
+import torch
 
 from utils.add_features import *
 from utils.evaluate_helper_methods import t_suspicion
@@ -7,7 +10,6 @@ from itertools import chain
 
 
 def feature_informative_missingness(case, sep_columns):
-
     temp_data = case.to_numpy()
 
     column_names = list(case.columns)
@@ -70,7 +72,6 @@ def feature_informative_missingness(case, sep_columns):
 
 
 def add_feature_informative_missingness(patient_data):
-
     vital_signs = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2']
     laboratory_values = ['BaseExcess', 'HCO3', 'FiO2', 'pH', 'PaCO2', 'SaO2', 'AST', 'BUN', 'Alkalinephos',
                          'Calcium', 'Chloride', 'Creatinine', 'Glucose', 'Lactate',
@@ -234,3 +235,20 @@ def pad_rows(patient_data):
 
     return patient_data_padded, mask
 
+
+def make_perfect_batch_tarnet(X, num_inst, num_samples):
+    extension = np.zeros((num_samples - num_inst, X.shape[1], X.shape[2]))
+    X = np.concatenate((X, extension), axis=0)
+    return X
+
+
+def tarnet_preprocessing(patient_data):
+    # print(patient_data.shape, type(patient_data))
+    patient_data = patient_data.detach().cpu().numpy()
+    # print(patient_data.shape, type(patient_data))
+    num_train_inst = patient_data.shape[0]
+    num_train_samples = math.ceil(num_train_inst / 16) * 16  # Original model batch_size was 16
+    patient_data = make_perfect_batch_tarnet(patient_data, num_train_inst, num_train_samples)
+    # print(patient_data.shape, type(patient_data))
+
+    return torch.as_tensor(patient_data).float()

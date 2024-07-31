@@ -14,18 +14,19 @@ modified_gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 
              'lr': 1e-4, 'batch_size': 3, 'num_epochs': 10}
 
 # TARNet
-tarnet_param = {'task_type': 'classification', 'device': 'cuda', 'nclasses': 2, 'seq_len': 336, 'batch': 32,
-                'input_size': 191, 'emb_size': 512, 'nhead': 8, 'nhid': 1024, 'nhid_tar': 1024,  'nhid_task':768,
-                'nlayers':4, 'dropout':0.1, 'epochs': 20, 'lr': 0.001, 'masking_ratio': 0.15,
+# Batch size should be divisible by len(train) and len(test)
+tarnet_param = {'task_type': 'classification', 'device': 'cuda', 'nclasses': 2, 'seq_len': 336, 'batch': 16,
+                'input_size': 191, 'emb_size': 128, 'nhead': 8, 'nhid': 256, 'nhid_tar': 512,  'nhid_task':512,
+                'nlayers':4, 'dropout':0.01, 'epochs': 200, 'lr': 0.0001, 'masking_ratio': 0.15,
                 # "ratio highest attention" is the proportion of the input sequence that receives the highest attention
                 # scores in the attention. Used in the function attention_sampled_masking_heuristic to determine
                 # which parts of the input sequence should be masked based on their attention scores.
-                'ratio_highest_attention': 0.40, 'avg': 'weighted', 'dataset': 'Sepsis',
+                'ratio_highest_attention': 0.5, 'avg': 'macro', 'dataset': 'Sepsis',
                 # This parameter controls the balance between the reconstruction task and the end task
                 # (classification or regression) in the multitask training process.
                 # A value closer to 1 means giving more weight to the reconstruction task.
                 # A value closer to 0 means giving more weight to the end task (classification or regression).
-                'task_rate': 0.8,
+                'task_rate': 0.5,
                 # This parameter controls the balance between the masked and unmasked parts of the reconstruction loss.
                 # A value closer to 1 means giving more weight to the masked reconstruction loss.
                 # A value closer to 0 means giving more weight to the unmasked reconstruction loss.

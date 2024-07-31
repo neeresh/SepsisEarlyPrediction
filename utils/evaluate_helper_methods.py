@@ -1,3 +1,4 @@
+from models.tarnet.multitask_transformer_class import MultitaskTransformerModel
 from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
     respiratory_rate_qsofa, sbp_qsofa, qsofa_score, q_sofa_indicator, sofa_indicator, detect_qsofa_change, \
     mortality_sofa, temp_sirs, heart_rate_sirs, resp_sirs, paco2_sirs, wbc_sirs, t_sofa, t_sepsis, hr_news, resp_news, \
@@ -12,7 +13,7 @@ from utils.helpers import get_features
 
 from utils.loader import make_loader
 
-from utils.config import gtn_param
+from utils.config import gtn_param, tarnet_param
 from torch.utils.data import DataLoader, ConcatDataset
 
 import torch
@@ -93,6 +94,22 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
                                                 d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
                                                 v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
                                                 pe=config['pe'], mask=config['mask'], device=device).to(device)
+
+        return load_model(model, model_name)
+
+    elif pre_model == 'tarnet':
+        print(f"Loading from {model_name}...")
+        print("Loading tarnet model")
+
+        config = tarnet_param
+        # (d_input, d_channel), d_output = (336, 191), 2
+
+        model = MultitaskTransformerModel(task_type=config['task_type'], device=config['device'],
+                                          nclasses=d_output, seq_len=d_input, batch=16,
+                                          input_size=d_channel, emb_size=config['emb_size'],
+                                          nhead=config['nhead'], nhid=config['nhid'], nhid_tar=config['nhid_tar'],
+                                          nhid_task=config['nhid_task'], nlayers=config['nlayers'],
+                                          dropout=config['dropout'], )
 
         return load_model(model, model_name)
 
