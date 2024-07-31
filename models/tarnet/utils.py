@@ -1,7 +1,7 @@
 import warnings, pickle, torch, math, os, random, numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
-import multitask_transformer_class
+import models.tarnet.multitask_transformer_class as multitask_transformer_class
 
 warnings.filterwarnings("ignore")
 
@@ -12,6 +12,7 @@ def initialize_training(prop):
                                                                   prop['input_size'], prop['emb_size'], prop['nhead'],
                                                                   prop['nhid'], prop['nhid_tar'], prop['nhid_task'],
                                                                   prop['nlayers'], prop['dropout']).to(prop['device'])
+
     best_model = multitask_transformer_class.MultitaskTransformerModel(prop['task_type'], prop['device'],
                                                                        prop['nclasses'], prop['seq_len'], prop['batch'], \
                                                                        prop['input_size'], prop['emb_size'],

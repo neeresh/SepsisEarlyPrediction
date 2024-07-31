@@ -8,7 +8,7 @@ Created on Sat Nov 21 15:04:31 2020
 import torch
 import torch.nn as nn
 import math
-import transformer
+import models.tarnet.transformer as transformer
 
 
 class PositionalEncoding(nn.Module):

@@ -1,12 +1,6 @@
+
 nn_config = {'epochs_num': 20, 'batch_size': 1, 'input_size': 39, 'hidden_size': 39, 'num_of_heads': 3,
              'num_layers': 4, 'dropout': 0.0, 'lr': 0.0001, 'size_average': True, 'clipping': 50, 'to_concat': True}
-
-lgb_classifier_params = {'num_leaves': 60, 'min_data_in_leaf': 120, 'objective': 'binary', 'max_depth': -1,
-                         'learning_rate': 0.01, 'reg_alpha': 0, 'reg_lambda': 0, 'metric': 'auc', 'verbosity': -1,
-                         'early_stopping_rounds': 100, 'scale_pos_weight': 20,
-                         # 'feature_fraction': 0.9, 'bagging_freq': 3, 'bagging_fraction': 0.9, 'bagging_seed': 0,
-                         # 'feature_fraction_seed': 0, 'is_unbalanced': False,
-                         }
 
 transformer_rnn_param = {'input_size': 128, 'hidden_size': 39, 'num_of_heads': 3, 'num_layers': 4,
                          'dropout': 0.25, 'batch_size': 128, 'lr': 0.001, 'epochs_num': 5, "size_average": True,
@@ -18,3 +12,21 @@ masked_gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N
              'lr': 1e-4, 'batch_size': 3, 'num_epochs': 30}
 modified_gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,
              'lr': 1e-4, 'batch_size': 3, 'num_epochs': 10}
+
+# TARNet
+tarnet_param = {'task_type': 'classification', 'device': 'cuda', 'nclasses': 2, 'seq_len': 336, 'batch': 32,
+                'input_size': 191, 'emb_size': 512, 'nhead': 8, 'nhid': 1024, 'nhid_tar': 1024,  'nhid_task':768,
+                'nlayers':4, 'dropout':0.1, 'epochs': 20, 'lr': 0.001, 'masking_ratio': 0.15,
+                # "ratio highest attention" is the proportion of the input sequence that receives the highest attention
+                # scores in the attention. Used in the function attention_sampled_masking_heuristic to determine
+                # which parts of the input sequence should be masked based on their attention scores.
+                'ratio_highest_attention': 0.40, 'avg': 'weighted', 'dataset': 'Sepsis',
+                # This parameter controls the balance between the reconstruction task and the end task
+                # (classification or regression) in the multitask training process.
+                # A value closer to 1 means giving more weight to the reconstruction task.
+                # A value closer to 0 means giving more weight to the end task (classification or regression).
+                'task_rate': 0.8,
+                # This parameter controls the balance between the masked and unmasked parts of the reconstruction loss.
+                # A value closer to 1 means giving more weight to the masked reconstruction loss.
+                # A value closer to 0 means giving more weight to the unmasked reconstruction loss.
+                'lamb': 0.80}
