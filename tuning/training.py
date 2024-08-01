@@ -6,45 +6,44 @@ from ray.train import get_checkpoint, Checkpoint
 import ray.cloudpickle as pickle
 from torch import optim, nn
 
-from models.gtn import GatedTransformerNetwork
+# from models.custom_models.gtn import GatedTransformerNetwork
+from models.custom_models.gtn_mask import MaskedGatedTransformerNetwork
 from tuning.custom_dataset import get_starters, load_data
 from utils.config import gtn_param
 
 import tempfile
 
 
-# train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis = get_starters()
-# train_dataset, val_dataset, test_dataset = load_data(train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis)
+def tune_sepsis(hyperparameters=None):
 
-def train_sepsis(hyperparameters=None):
+    # Get train, test indices and required files.
+    train_indices, val_indices, test_indices, examples, lengths_list, is_sepsis = get_starters(
+        majority_class=hyperparameters['majority_samples'], data_file="final_dataset.pickle", include_val=False)
 
-    train_indicies, test_indicies, examples, lengths_list, is_sepsis = get_starters(
-        fraction=hyperparameters['majority_samples'])
-    train_dataset, val_dataset = load_data(train_indicies, 'NAN', test_indicies, examples, lengths_list, is_sepsis)
+    # Get datasets
+    train_loader, val_loader, test_loader = load_data(train_indices, val_indices, test_indices,
+                                                         examples, lengths_list, is_sepsis,
+                                                         hyperparameters["batch_size"])
 
-    device = "cuda:0"
-
-    # Model
+    device = "cuda"
     config = gtn_param
     d_input, d_channel, d_output = 336, 191, 2
-    model = GatedTransformerNetwork(d_model=hyperparameters['d_model'], d_input=d_input, d_channel=d_channel,
+    model = MaskedGatedTransformerNetwork(d_model=hyperparameters['d_model'], d_input=d_input, d_channel=d_channel,
                                     d_output=d_output, d_hidden=hyperparameters['d_hidden'], q=hyperparameters['q'],
                                     v=hyperparameters['v'], h=hyperparameters['h'], N=hyperparameters['N'],
                                     dropout=hyperparameters['dropout'], pe=config['pe'], mask=config['mask'],
-                                    device=device).to(device)
+                                    device=device)
     
     if torch.cuda.is_available():
-        device = "cuda:0"
+        device = "cuda"
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
+
     model.to(device)
 
-    # Criteria, Optimizer, & Scheduler
-    # manual_weights = torch.tensor([hyperparameters['w1'], hyperparameters['w2']]).to(device)
-    # criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=hyperparameters['labelsmoothing'])
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adagrad(model.parameters(), lr=hyperparameters['lr'])  # GTN
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=hyperparameters['epochs'])
+    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=hyperparameters['epochs'])  # Not in GTN Implementation
 
     # Checkpoint
     checkpoint = get_checkpoint()
@@ -59,52 +58,34 @@ def train_sepsis(hyperparameters=None):
     else:
         start_epoch = 0
 
-    # Loading datasets
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=int(hyperparameters['batch_size']),
-                                               shuffle=True, num_workers=4)
+    # Training Phase
+    for epoch in range(hyperparameters["epochs"]):
 
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=int(hyperparameters['batch_size']),
-                                             shuffle=False, num_workers=4)
-
-    # Training the model
-    for epoch in range(start_epoch, hyperparameters['epochs']):
         model.train()
-        running_train_loss = 0.0
-        epoch_steps = 0
-        correct_train, total_train = 0, 0
-
-        for i, (inputs, labels) in enumerate(train_loader):
+        for idx, (inputs, labels, padded_masks) in enumerate(train_loader):
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
 
-            # Forward + Backward + Optimize
-            outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'train')
-            loss = criterion(outputs, labels)
+            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train', padded_masks)
+            loss = criterion(outputs, labels.to(device))
+
             loss.backward()
             optimizer.step()
-
-            # printing statistics
-            running_train_loss += loss.item()
-            epoch_steps += 1
-
-            if i % 2000 == 1999:  # print every 2000 mini-batches
-                print("[%d, %5d] loss: %.3f"% (epoch + 1, i + 1, running_train_loss / epoch_steps))
-                running_train_loss = 0.0
 
         # Validation phase
         running_val_loss = 0.0
         val_steps = 0
         total_val, correct_val = 0, 0
 
-        for i, (inputs, labels) in enumerate(val_loader):
-            with torch.no_grad():
-                inputs, labels = inputs.to(device), labels.to(device)
-                outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
+        with torch.no_grad():
+            model.eval()
+            for idx, (inputs, labels, padded_masks) in enumerate(test_loader):
+                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test', padded_masks)
+                loss = criterion(outputs, labels.to(device))
                 _, predicted = torch.max(outputs, 1)
                 total_val += labels.size(0)
-                correct_val += (predicted == labels).sum().item()
+                correct_val += (predicted.detach().cpu() == labels).sum().item()
 
-                loss = criterion(outputs, labels)
                 running_val_loss += loss.item() * inputs.size(0)
                 val_steps += 1
 
@@ -119,7 +100,7 @@ def train_sepsis(hyperparameters=None):
             train.report({"loss": running_val_loss / val_steps, "accuracy": correct_val / total_val},
                          checkpoint=checkpoint)
 
-        scheduler.step()
+        # scheduler.step()
 
     print("Finished Training")
 

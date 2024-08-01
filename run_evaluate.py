@@ -204,7 +204,7 @@ def evaluate():
     # get_true_labels(custom_files=files)
 
 
-evaluate()
+# evaluate()
 
 # Get true labels
 get_true_labels()

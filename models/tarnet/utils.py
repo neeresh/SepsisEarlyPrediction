@@ -116,6 +116,7 @@ def initialize_training(prop):
                                                                   prop['input_size'], prop['emb_size'], prop['nhead'],
                                                                   prop['nhid'], prop['nhid_tar'], prop['nhid_task'],
                                                                   prop['nlayers'], prop['dropout']).to(prop['device'])
+
     best_model = multitask_transformer_class.MultitaskTransformerModel(prop['task_type'], prop['device'],
                                                                        prop['nclasses'], prop['seq_len'], prop['batch'], \
                                                                        prop['input_size'], prop['emb_size'],
@@ -151,8 +152,8 @@ def random_instance_masking(X, masking_ratio, ratio_highest_attention, instance_
     X_train_tar = np.where(boolean_indices_unmasked, X, 0.0)
     y_train_tar_masked = y_train_tar_masked[boolean_indices_masked].reshape(X.shape[0], -1)
     y_train_tar_unmasked = y_train_tar_unmasked[boolean_indices_unmasked].reshape(X.shape[0], -1)
-    X_train_tar, y_train_tar_masked, y_train_tar_unmasked = torch.as_tensor(X_train_tar).float(), torch.as_tensor(
-        y_train_tar_masked).float(), torch.as_tensor(y_train_tar_unmasked).float()
+    X_train_tar, y_train_tar_masked, y_train_tar_unmasked = torch.as_tensor(X_train_tar).float().to('cuda'), torch.as_tensor(
+        y_train_tar_masked).float().to('cuda'), torch.as_tensor(y_train_tar_unmasked).float().to('cuda')
 
     return X_train_tar, y_train_tar_masked, y_train_tar_unmasked, boolean_indices_masked, boolean_indices_unmasked
 
@@ -188,6 +189,7 @@ def compute_task_loss(nclasses, model, device, criterion_task, y_train_task, bat
 def multitask_train(model, criterion_tar, criterion_task, optimizer, X_train_tar, X_train_task, y_train_tar_masked,
                     y_train_tar_unmasked, \
                     y_train_task, boolean_indices_masked, boolean_indices_unmasked, prop):
+
     model.train()  # Turn on the train mode
     total_loss_tar_masked, total_loss_tar_unmasked, total_loss_task = 0.0, 0.0, 0.0
     num_batches = math.ceil(X_train_tar.shape[0] / prop['batch'])
@@ -280,10 +282,11 @@ def test(model, X, y, batch, nclasses, criterion, task_type, device, avg):
 
 def training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train_task, y_train_task,
              X_test, y_test, prop):
+
     tar_loss_masked_arr, tar_loss_unmasked_arr, tar_loss_arr, task_loss_arr, min_task_loss = [], [], [], [], math.inf
     acc, rmse, mae = 0, math.inf, math.inf
 
-    instance_weights = torch.as_tensor(torch.rand(X_train_task.shape[0], prop['seq_len']), device=prop['device'])
+    instance_weights = torch.as_tensor(torch.rand(X_train_task.shape[0], prop['seq_len']), device=prop['device']).to('cuda')
     for epoch in range(1, prop['epochs'] + 1):
 
         X_train_tar, y_train_tar_masked, y_train_tar_unmasked, boolean_indices_masked, boolean_indices_unmasked = \

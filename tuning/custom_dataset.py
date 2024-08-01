@@ -10,67 +10,67 @@ from torch.utils.data import Dataset
 from utils.path_utils import project_root
 
 
-class DatasetWithPadding(Dataset):
+# from utils.loader import DatasetWithPadding, DatasetWithPaddingMasking
+
+
+class DatasetWithPaddingMasking(Dataset):
     def __init__(self, training_examples_list, lengths_list, is_sepsis):
-        self.data, self.labels = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
+        self.data, self.labels, self.mask = self._create_dataset(training_examples_list, lengths_list, is_sepsis)
 
     def _create_dataset(self, training_examples_list, lengths_list, is_sepsis):
-        data, labels = [], []
-        max_time_step = 336
-        for patient_data, sepsis in zip(training_examples_list, is_sepsis):
-            patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
-            pad = (max_time_step - len(patient_data), 0)
-            patient_data = np.pad(patient_data, pad_width=((0, pad[0]), (0, 0)), mode='constant').astype(np.float32)
+        data, labels, masks = [], [], []
 
+        max_time_step = 336  # The maximum sequence length for padding
+
+        for patient_data, length, sepsis in zip(training_examples_list, lengths_list, is_sepsis):
+
+            patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+            original_length = len(patient_data)
+            padding_length = max_time_step - original_length
+            patient_data = np.pad(patient_data, pad_width=((0, padding_length), (0, 0)), mode='constant').astype(
+                np.float32)
+
+            # mask = 1 for valid entries, 0 for padding
+            mask = np.ones((max_time_step,), dtype=bool)
+            if padding_length > 0:
+                mask[original_length:] = False
+
+            # Convert to tensors
             data.append(torch.from_numpy(patient_data))
             labels.append(sepsis)
+            masks.append(torch.from_numpy(mask))  # Expand mask to match input shape (max_time_step, 1)
 
-        return data, labels
+        return data, labels, masks
 
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, item):
-        return self.data[item], self.labels[item]
+        return self.data[item], self.labels[item], self.mask[item]
 
 
-def get_train_val_test_indices(fraction):
-
-    # is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None)
-
-    # Handling immabalanced dataset
+def get_train_val_test_indices(majority_class, include_val):
     file_path = os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt')
     sepsis = pd.Series(open(file_path, 'r').read().splitlines()).astype(int)
 
+    assert len(sepsis) == 40336, f"Total number of patients should be 40036 but given {len(sepsis)}"
+
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=fraction, random_state=42).index
-
-    # print(f"Number of positive sepsis: {len(positive_sepsis_idxs)}")  # 2932
-    # print(f"Number of negative sepsis: {len(negative_sepsis_idxs)}")  # 7481 for 0.20
-
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=majority_class, random_state=42).index
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
     np.random.shuffle(all_samples)
 
-    train_temp, test = train_test_split(all_samples, test_size=0.2, random_state=42)
-    # End
+    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
+    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
 
-    # train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
-    train, test = train_temp, test
-    # train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
+    if include_val:
+        return train_indicies, val_indicies, test_indicies
 
-    # train_indices = train.index.values
-    # val_indices = val.index.values
-    # test_indices = test.index.values
-
-    train_indices, test_indices = train, test
-
-    # return train_indices, val_indices, test_indices
-    return train_indices, test_indices
+    else:
+        return train_indicies, None, test_indicies
 
 
-def initialize_experiment():
-    data_file = "final_dataset.pickle"
-
+def get_data(data_file):
     training_examples = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', data_file))
 
     with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt')) as f:
@@ -82,50 +82,41 @@ def initialize_experiment():
     return training_examples, lengths_list, is_sepsis
 
 
-def get_starters(fraction):
-    """
-    This is the first method to be called.
-    """
-    # train_indicies, val_indices, test_indicies = get_train_val_test_indices()
-    train_indicies, test_indicies = get_train_val_test_indices(fraction)
-    examples, lengths_list, is_sepsis = initialize_experiment()
+def get_starters(majority_class, data_file, include_val=False):
+    train_indices, val_indices, test_indices = get_train_val_test_indices(majority_class, include_val)
+    examples, lengths_list, is_sepsis = get_data(data_file)
 
-    # return train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis
-    return train_indicies, test_indicies, examples, lengths_list, is_sepsis
+    return train_indices, val_indices, test_indices, examples, lengths_list, is_sepsis
 
 
-def load_data(train_indicies, val_indices, test_indicies, examples, lengths_list, is_sepsis):
+def load_data(train_indices, val_indices, test_indices, examples, lengths_list, is_sepsis, batch_size):
+    train_samples = [examples[idx] for idx in train_indices]
+    test_samples = [examples[idx] for idx in test_indices]
 
-    # train_samples = [examples[idx] for idx in train_indicies]
-    # val_samples = [examples[idx] for idx in val_indices]
-    # test_samples = [examples[idx] for idx in test_indicies]
-    #
-    # train_lengths_list = [lengths_list[idx] for idx in train_indicies]
-    # val_lengths_list = [lengths_list[idx] for idx in val_indices]
-    # test_lengths_list = [lengths_list[idx] for idx in test_indicies]
-    #
-    # is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
-    # is_sepsis_val = [is_sepsis[idx] for idx in val_indices]
-    # is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+    train_lengths_list = [lengths_list[idx] for idx in train_indices]
+    test_lengths_list = [lengths_list[idx] for idx in test_indices]
 
-    train_samples = [examples[idx] for idx in train_indicies]
-    test_samples = [examples[idx] for idx in test_indicies]
+    is_sepsis_train = [is_sepsis[idx] for idx in train_indices]
+    is_sepsis_test = [is_sepsis[idx] for idx in test_indices]
 
-    train_lengths_list = [lengths_list[idx] for idx in train_indicies]
-    test_lengths_list = [lengths_list[idx] for idx in test_indicies]
+    train_dataset = DatasetWithPaddingMasking(training_examples_list=train_samples, lengths_list=train_lengths_list,
+                                              is_sepsis=is_sepsis_train)
+    test_dataset = DatasetWithPaddingMasking(training_examples_list=test_samples, lengths_list=test_lengths_list,
+                                             is_sepsis=is_sepsis_test)
 
-    is_sepsis_train = [is_sepsis[idx] for idx in train_indicies]
-    is_sepsis_test = [is_sepsis[idx] for idx in test_indicies]
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=int(batch_size), shuffle=True, num_workers=4)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=int(batch_size), shuffle=False, num_workers=4)
 
+    if val_indices:
+        val_samples = [examples[idx] for idx in val_indices]
+        val_lengths_list = [lengths_list[idx] for idx in val_indices]
+        is_sepsis_val = [is_sepsis[idx] for idx in val_indices]
 
-    train_dataset = DatasetWithPadding(training_examples_list=train_samples, lengths_list=train_lengths_list,
-                                       is_sepsis=is_sepsis_train)
-    # val_dataset = DatasetWithPadding(training_examples_list=val_samples, lengths_list=val_lengths_list,
-    #                                  is_sepsis=is_sepsis_val)
-    test_dataset = DatasetWithPadding(training_examples_list=test_samples, lengths_list=test_lengths_list,
-                                      is_sepsis=is_sepsis_test)
+        val_dataset = DatasetWithPaddingMasking(training_examples_list=val_samples, lengths_list=val_lengths_list,
+                                                is_sepsis=is_sepsis_val)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=int(batch_size), shuffle=False,
+                                                 num_workers=4)
 
+        return train_loader, val_loader, test_loader
 
-
-    # return train_dataset, val_dataset, test_dataset
-    return train_dataset, test_dataset
+    return train_loader, None, test_loader

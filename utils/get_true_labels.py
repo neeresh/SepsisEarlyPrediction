@@ -3,14 +3,19 @@ import tqdm
 
 import pandas as pd
 
+from utils.path_utils import project_root
+
 
 def get_true_labels(custom_files=None):
     if custom_files is None:
 
         print("Dataset is retrieving from...")
-        print("/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/")
+        print(os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setA'))
 
-        data_path = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/"
+        # data_path = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/"
+        data_path = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setA')
 
         training_files = [file for file in os.listdir(data_path) if file.endswith('.psv')]
         training_files.sort()
@@ -28,8 +33,10 @@ def get_true_labels(custom_files=None):
         print("Evaluating on custom files...")
 
         data_path = [
-            "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/",
-            "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
+            os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setA'),
+            os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setB')
         ]
         all_files = []
         for file_path in data_path:
@@ -61,9 +68,11 @@ def get_true_labels_setB(custom_files=None):
     if custom_files is None:
 
         print("Dataset is retrieving from...")
-        print("/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/")
+        print(os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setB'))
 
-        data_path = "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
+        data_path = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setB')
 
         training_files = [file for file in os.listdir(data_path) if file.endswith('.psv')]
         training_files.sort()
@@ -81,8 +90,10 @@ def get_true_labels_setB(custom_files=None):
         print("Evaluating on custom files...")
 
         data_path = [
-            "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setA/",
-            "/localscratch/neeresh/data/physionet2019/physionet.org/files/challenge-2019/1.0.0/training/training_setB/"
+            os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setA'),
+            os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                 'training_setB')
         ]
         all_files = []
         for file_path in data_path:
@@ -110,7 +121,7 @@ def get_true_labels_setB(custom_files=None):
         print("Completed.")
 
 
-if __name__ == '__main__':
-    get_true_labels_setA()
-    get_true_labels_setB()
+# if __name__ == '__main__':
+#     get_true_labels()
+#     get_true_labels_setB()
 

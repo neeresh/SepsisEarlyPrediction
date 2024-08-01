@@ -8,16 +8,13 @@ from ray import tune
 import torch.nn as nn
 from ray.tune.schedulers import ASHAScheduler
 
-from models.gtn import GatedTransformerNetwork
+from models.custom_models.gtn import GatedTransformerNetwork
 # from tuning.training import train_sepsis, test_accuracy
-from tuning.training import train_sepsis
+from tuning.training import tune_sepsis
 from utils.path_utils import project_root
 
 
 def main(num_samples, max_epochs, gpus_per_trial):
-    """
-    num_samples: Number of times to sample from hyperparameter space
-    """
 
     hyperparameters = {
         "d_model": tune.choice([512, 1024]),
@@ -31,20 +28,22 @@ def main(num_samples, max_epochs, gpus_per_trial):
         "batch_size": tune.choice([64, 128, 256]),
         # 'w1': tune.loguniform(0.001, 6),
         # 'w2': tune.loguniform(0.001, 6),
-        'epochs': tune.choice([30, 40, 50]),
+        'epochs': tune.choice([1, 1]),
         # 'labelsmoothing': tune.loguniform(0.0001, 0.05),
-        # 'mask': tune.choice([True, False]),
         'majority_samples': tune.loguniform(0.1, 0.40),
         }
 
     scheduler = ASHAScheduler(metric="loss", mode="min", max_t=max_epochs, grace_period=1, reduction_factor=2)
 
-    output_dir = os.path.join(project_root(), '..', '..', 'results', 'physionet2019', 'hyperparameter_tuning')
-    result = tune.run(partial(train_sepsis), resources_per_trial={"cpu": 8, "gpu": gpus_per_trial},
+    # output_dir = os.path.join(project_root(), '..', '..', 'results', 'physionet2019', 'hyperparameter_tuning')
+    output_dir = os.path.join(project_root(), 'results', 'physionet2019', 'hyperparameter_tuning')
+
+    result = tune.run(partial(tune_sepsis), resources_per_trial={"cpu": 4, "gpu": gpus_per_trial},
                       config=hyperparameters, num_samples=num_samples, scheduler=scheduler,
                       storage_path=output_dir)
 
     best_trial = result.get_best_trial("loss", "min", "last")
+    print(best_trial)
 
     print(f"Best trial config: {best_trial.config}")
     print(f"Best trial final validation loss: {best_trial.last_result['loss']}")
@@ -78,4 +77,4 @@ def main(num_samples, max_epochs, gpus_per_trial):
 
 
 if __name__ == "__main__":
-    main(num_samples=50, max_epochs=50, gpus_per_trial=1)
+    main(num_samples=1, max_epochs=2, gpus_per_trial=1)

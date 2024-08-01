@@ -164,12 +164,12 @@ if __name__ == '__main__':
     # Pre-processing and making perfect batches; here we pad zeros to have equal samples in the last batch
     X_train, y_train, X_test, y_test = preprocess(tarnet_param, X_train, y_train, X_test, y_test)
 
-    logging.info(f"X_train: {type(X_train)}, y_train: {type(y_train)}")
-    logging.info(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
+    print(f"X_train: {type(X_train)}, y_train: {type(y_train)}")
+    print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
 
-    logging.info('Training start...')
+    print('Training start...')
     model = training(model, optimizer, criterion_tar, criterion_task, best_model, best_optimizer, X_train,
                    y_train, X_test, y_test, tarnet_param)
-    logging.info('Training complete...')
+    print('Training complete...')
 
     save_model(model, model_name=f"./saved_models/tarnet/tarnet_final_{config['epochs']}_val.pkl")
