@@ -17,18 +17,18 @@ from utils.path_utils import project_root
 def main(num_samples, max_epochs, gpus_per_trial):
 
     hyperparameters = {
-        "d_model": tune.choice([512, 1024]),
-        "d_hidden": tune.choice([512, 1024]),
-        "q": tune.choice([6, 8, 10]),
-        "v": tune.choice([6, 8, 10]),
-        "h": tune.choice([6, 8, 10]),
-        "N": tune.choice([6, 8, 10]),
-        "dropout": tune.loguniform(0.2, 0.5),
-        "lr": tune.loguniform(1e-7, 1e-3),
-        "batch_size": tune.choice([64, 128, 256]),
+        "d_model": tune.choice([128, 256, 512, 1024]),
+        "d_hidden": tune.choice([256, 512, 1024]),
+        "q": tune.choice([4, 6, 8, 10]),
+        "v": tune.choice([4, 6, 8, 10]),
+        "h": tune.choice([4, 6, 8, 10]),
+        "N": tune.choice([4, 6, 8, 10]),
+        "dropout": tune.loguniform(0.1, 0.5),
+        "lr": tune.loguniform(1e-9, 1e-1),
+        "batch_size": tune.choice([3, 4, 8, 11]),
         # 'w1': tune.loguniform(0.001, 6),
         # 'w2': tune.loguniform(0.001, 6),
-        'epochs': tune.choice([1, 1]),
+        'epochs': tune.choice([50, 50]),
         # 'labelsmoothing': tune.loguniform(0.0001, 0.05),
         'majority_samples': tune.loguniform(0.1, 0.40),
         }
@@ -76,4 +76,4 @@ def main(num_samples, max_epochs, gpus_per_trial):
 
 
 if __name__ == "__main__":
-    main(num_samples=1, max_epochs=2, gpus_per_trial=1)
+    main(num_samples=50, max_epochs=50, gpus_per_trial=1)

@@ -104,8 +104,8 @@ def load_data(train_indices, val_indices, test_indices, examples, lengths_list, 
     test_dataset = DatasetWithPaddingMasking(training_examples_list=test_samples, lengths_list=test_lengths_list,
                                              is_sepsis=is_sepsis_test)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=int(batch_size), shuffle=True, num_workers=4)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=int(batch_size), shuffle=False, num_workers=4)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=int(batch_size), shuffle=True, num_workers=2)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=int(batch_size), shuffle=False, num_workers=2)
 
     if val_indices:
         val_samples = [examples[idx] for idx in val_indices]
@@ -115,7 +115,7 @@ def load_data(train_indices, val_indices, test_indices, examples, lengths_list, 
         val_dataset = DatasetWithPaddingMasking(training_examples_list=val_samples, lengths_list=val_lengths_list,
                                                 is_sepsis=is_sepsis_val)
         val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=int(batch_size), shuffle=False,
-                                                 num_workers=4)
+                                                 num_workers=2)
 
         return train_loader, val_loader, test_loader
 
