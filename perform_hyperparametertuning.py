@@ -43,7 +43,6 @@ def main(num_samples, max_epochs, gpus_per_trial):
                       storage_path=output_dir)
 
     best_trial = result.get_best_trial("loss", "min", "last")
-    print(best_trial)
 
     print(f"Best trial config: {best_trial.config}")
     print(f"Best trial final validation loss: {best_trial.last_result['loss']}")

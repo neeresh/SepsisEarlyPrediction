@@ -97,7 +97,7 @@ def tune_sepsis(hyperparameters=None):
                 pickle.dump(checkpoint_data, fp)
 
             checkpoint = Checkpoint.from_directory(checkpoint_dir)
-            train.report({"loss": running_val_loss / val_steps, "accuracy": correct_val / total_val},
+            train.report({"loss": running_val_loss / len(test_loader.dataset), "accuracy": correct_val / total_val},
                          checkpoint=checkpoint)
 
         # scheduler.step()
