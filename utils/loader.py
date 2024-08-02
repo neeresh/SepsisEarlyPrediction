@@ -9,6 +9,7 @@ import tqdm
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, Sampler, DataLoader
 
+from utils.helpers import get_features
 from utils.path_utils import project_root
 from torch.nn.utils.rnn import pad_sequence
 import torch
@@ -209,7 +210,8 @@ class DatasetWithPaddingMasking(Dataset):
             patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
             original_length = len(patient_data)
             padding_length = max_time_step - original_length
-            patient_data = np.pad(patient_data, pad_width=((0, padding_length), (0, 0)), mode='constant').astype(np.float32)
+            patient_data = np.pad(patient_data, pad_width=((0, padding_length), (0, 0)), mode='constant').astype(
+                np.float32)
 
             # mask = 1 for valid entries, 0 for padding
             mask = np.ones((max_time_step,), dtype=bool)
@@ -325,9 +327,46 @@ class DatasetWithPaddingAndLengths(Dataset):
 #         return self.data[item], self.labels[item], self.lengths[item]
 
 
+def save_train_means(train_samples):
+    mean_imputation = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'FiO2', 'pH', 'PaCO2', 'SaO2',
+                       'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Creatinine', 'Bilirubin_direct', 'Glucose',
+                       'Lactate', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'Fibrinogen', 'Platelets', 'Age']
+    median_imputation = ['HCO3', 'Chloride', 'Magnesium', 'Phosphate', 'Potassium', 'PTT', 'WBC', 'HospAdmTime',
+                         'ICULOS']
+    category_imputation = ['Gender', 'Unit1', 'Unit2']
+
+    features_list = get_features(case=None)
+
+    features = []
+    for each_list in features_list:
+        features.extend(each_list)
+
+    combined_dataset = pd.concat(train_samples)
+    features.extend(['SepsisLabel', 'PatientID'])
+    combined_dataset = combined_dataset[features]
+
+    means = combined_dataset[mean_imputation].mean(axis=0, skipna=True).round(2)
+    medians = combined_dataset[median_imputation].median(axis=0, skipna=True).round(2)
+
+    # For preprocessing (during evaluation)
+    # combined_dataset['Unit1'] = combined_dataset['Unit1'].fillna(0)
+    # combined_dataset['Unit2'] = combined_dataset['Unit2'].fillna(0)
+    #
+    # combined_dataset.loc[combined_dataset['Unit1'] == 0, 'Unit2'] = 1
+    # combined_dataset.loc[combined_dataset['Unit2'] == 0, 'Unit1'] = 1
+    #
+    # combined_dataset['Gender'] = combined_dataset['Gender'].fillna(0)
+
+    # save means
+    means.to_csv('means.csv', index=mean_imputation)
+    medians.to_csv('medians.csv', index=median_imputation)
+
+    print(f"Saving means and medians of train set...! (for evaluation)")
+    logging.info(f"Saving means and medians of train set...! (for evaluation)")
+
+
 def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=4, train_indicies=None,
                 test_indicies=None, val_indicies=None, select_important_features=False, include_val=False):
-
     # Loading data from given indicies
     if train_indicies is None and test_indicies is None:
         print("Loading data from pre-defined indicies")
@@ -384,6 +423,9 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         test_samples = [patient_data[lgbm_features + ['PatientID', 'SepsisLabel']] for patient_data in test_samples]
 
         print(f"Selected important features: Now: {train_samples[0].shape[1]}")
+
+    # Saving means of train samples. (for evaluation)
+    save_train_means(train_samples)
 
     # Operations on dataset
     if mode == "window":
@@ -465,7 +507,7 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
 
         if include_val:
             val_dataset = DatasetWithPaddingMasking(training_examples_list=val_samples, lengths_list=val_lengths_list,
-                                             is_sepsis=is_sepsis_val, )
+                                                    is_sepsis=is_sepsis_val, )
             val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
             logging.info(f"Num of training examples: {len(train_dataset)}")
@@ -485,8 +527,9 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         logging.info(f"Batch size is {batch_size}")
 
         if include_val:
-            val_dataset = DatasetWithPaddingAndLengths(training_examples_list=val_samples, lengths_list=val_lengths_list,
-                                             is_sepsis=is_sepsis_val, )
+            val_dataset = DatasetWithPaddingAndLengths(training_examples_list=val_samples,
+                                                       lengths_list=val_lengths_list,
+                                                       is_sepsis=is_sepsis_val, )
             val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
             # logging.info(f"Window size: {train_dataset.window_size} & Step size: {train_dataset.step_size}")

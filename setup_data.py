@@ -75,6 +75,14 @@ class DataSetup:
         # with open(os.path.join(project_root(), 'data', 'processed', 'final_dataset.pickle'), 'wb') as f:
         #     pickle.dump(training_examples, f)
 
+    # FiO2 should be percentage between 0 and 1
+    def preprocess_fio2(self, fio2):
+        return np.select(
+            condlist=[fio2 > 1.0, fio2 <= 1.0],
+            choicelist=[fio2 / 100.0, fio2],
+            default=np.nan
+        )
+
     def fill_missing_values(self, pickle_file, method):
 
         training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
@@ -89,6 +97,7 @@ class DataSetup:
             means = all_data.mean(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files, desc="Mean Imputation", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
+                example['FiO2'] = self.preprocess_fio2(example['FiO2'])
                 example.fillna(means, inplace=True)
                 training_examples.append(example)
 
@@ -107,6 +116,7 @@ class DataSetup:
             medians = all_data.median(axis=0, skipna=True)
             for training_file in tqdm.tqdm(training_files, desc="Median Imputation", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
+                example['FiO2'] = self.preprocess_fio2(example['FiO2'])
                 example.fillna(medians, inplace=True)
                 training_examples.append(example)
 
@@ -123,6 +133,7 @@ class DataSetup:
             for training_file in tqdm.tqdm(training_files, desc="Zero Imputation", total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
                 example = example.drop(['SepsisLabel'], axis=1)
+                example['FiO2'] = self.preprocess_fio2(example['FiO2'])
                 example.fillna(0, inplace=True)
                 training_examples.append(example)
 
@@ -147,6 +158,7 @@ class DataSetup:
             for training_file in tqdm.tqdm(training_files, desc="Filling missing using rolling & bfill(), and means",
                                            total=len(training_files)):
                 example = pd.read_csv(training_file, sep=',')
+                example['FiO2'] = self.preprocess_fio2(example['FiO2'])
                 for feature in vital_features:
                     example[feature] = example[feature].rolling(window=6, min_periods=1).mean().bfill()
                 example.fillna(means, inplace=True)
@@ -167,6 +179,7 @@ class DataSetup:
                                            total=len(training_files)):
                 # example = pd.read_csv(training_file, sep=',')
                 example = training_file
+                example['FiO2'] = self.preprocess_fio2(example['FiO2'])
                 example.ffill(inplace=True)
                 example.bfill(inplace=True)
                 example.fillna(value=0, inplace=True)

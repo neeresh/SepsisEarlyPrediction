@@ -13,7 +13,7 @@ from utils.helpers import get_features
 
 from utils.loader import make_loader
 
-from utils.config import gtn_param, tarnet_param
+from utils.config import gtn_param, tarnet_param, masked_gtn_param
 from torch.utils.data import DataLoader, ConcatDataset
 
 import torch
@@ -65,8 +65,8 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
     """
     Used to load the trained model
     """
-    config = gtn_param
     if pre_model == 'gtn':
+        config = gtn_param
         print(f"Loading from {model_name}...")
         print(f"Loading original model...")
 
@@ -78,6 +78,7 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         return load_model(model, model_name)
 
     elif pre_model == 'masked_gtn':
+        config = masked_gtn_param
         print(f"Loading from {model_name}...")
         print("Loading modified gtn model")
         model = MaskedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,

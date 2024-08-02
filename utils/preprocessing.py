@@ -9,6 +9,15 @@ from utils.evaluate_helper_methods import t_suspicion
 from itertools import chain
 
 
+# FiO2 should be percentage between 0 and 1
+def preprocess_fio2(fio2):
+    return np.select(
+        condlist=[fio2 > 1.0, fio2 <= 1.0],
+        choicelist=[fio2 / 100.0, fio2],
+        default=np.nan  # Handle unexpected cases
+    )
+
+
 def feature_informative_missingness(case, sep_columns):
     temp_data = case.to_numpy()
 
@@ -84,6 +93,32 @@ def add_feature_informative_missingness(patient_data):
 
 
 def fill_missing_values(patient_data):
+    mean_imputation = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'FiO2', 'pH', 'PaCO2', 'SaO2',
+                       'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Creatinine', 'Bilirubin_direct', 'Glucose',
+                       'Lactate', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'Fibrinogen', 'Platelets', 'Age']
+    median_imputation = ['HCO3', 'Chloride', 'Magnesium', 'Phosphate', 'Potassium', 'PTT', 'WBC',
+                         'HospAdmTime', 'ICULOS']
+    category_imputation = ['Gender', 'Unit1', 'Unit2']
+
+    # Filling values with mean, median and custom techniques before filling with 0
+    means = pd.read_csv('means.csv', index_col=[0])
+    medians = pd.read_csv('medians.csv', index_col=[0])
+
+    means = means.to_dict()['0']
+    medians = medians.to_dict()['0']
+
+    means_series = pd.Series(means)
+    median_series = pd.Series(medians)
+
+    patient_data = patient_data.fillna(value=means_series)
+    patient_data = patient_data.fillna(value=median_series)
+
+    patient_data['Unit1'] = patient_data['Unit1'].fillna(0)
+    patient_data['Unit2'] = patient_data['Unit2'].fillna(0)
+
+    patient_data.loc[patient_data['Unit1'] == 0, 'Unit2'] = 1
+    patient_data.loc[patient_data['Unit2'] == 0, 'Unit1'] = 1
+
     patient_data.ffill(inplace=True)
     patient_data.bfill(inplace=True)
     patient_data.fillna(value=0, inplace=True)
@@ -198,6 +233,7 @@ def add_additional_features(patient_data):
 
 
 def preprocessing(patient_data):
+    patient_data['FiO2'] = preprocess_fio2(patient_data['FiO2'])
     patient_data = add_feature_informative_missingness(patient_data)
     patient_data = fill_missing_values(patient_data)
     patient_data = add_sliding_features_for_vital_signs(patient_data)

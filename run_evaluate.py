@@ -134,6 +134,7 @@ def get_sepsis_score(data, model):
     with torch.no_grad():
         patient_data = patient_data.to(device)
         outputs, _, _, _, _, _, _ = model(patient_data, stage='test', mask=mask)  # MaskGTN
+        # outputs, _, _, _, _, _, _ = model(patient_data, stage='test')
 
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
@@ -171,7 +172,7 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = "./saved_models/masked_gtn/masked_gtn_final_30_val.pkl"
+    model_path = "./saved_models/masked_gtn/masked_gtn_final_50_val_half_dataset_big_dims.pkl"
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
                               pre_model="masked_gtn")
 
@@ -204,7 +205,7 @@ def evaluate():
     # get_true_labels(custom_files=files)
 
 
-# evaluate()
+evaluate()
 
 # Get true labels
 get_true_labels()
