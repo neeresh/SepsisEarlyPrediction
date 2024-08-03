@@ -150,15 +150,15 @@ def get_sepsis_score(data, model):
 def evaluate():
 
     # Gathering Files
-    input_directory = os.path.join(project_root(), 'physionet.org', 'files',
-                                   'challenge-2019', '1.0.0', 'training', 'training_setA')
-    output_directory = "./predictions/"
+    # input_directory = os.path.join(project_root(), 'physionet.org', 'files',
+    #                                'challenge-2019', '1.0.0', 'training', 'training_setA')
+    # output_directory = "./predictions/"
 
     # Test data and true labels are created
     # prepare_test_data()
 
-    # input_directory = os.path.join(project_root(), 'data', 'test_data', 'masked_gtn')
-    # output_directory = "./predictions/"
+    input_directory = os.path.join(project_root(), 'data', 'test_data', 'masked_gtn')
+    output_directory = "./predictions/"
 
     # Find files
     files = []
@@ -202,13 +202,13 @@ def evaluate():
         output_file = os.path.join(output_directory, f)
         save_challenge_predictions(output_file, scores, labels)
 
-    # get_true_labels(custom_files=files)
+    get_true_labels(custom_files=files)
 
 
 evaluate()
 
 # Get true labels
-get_true_labels()
+# get_true_labels()
 
 # Evaluate true and predicted labels
 

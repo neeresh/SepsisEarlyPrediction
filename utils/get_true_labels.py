@@ -42,7 +42,7 @@ def get_true_labels(custom_files=None):
         for file_path in data_path:
             print(f"Total number of files in {file_path}: {len(os.listdir(file_path))}")
             for patient_file in os.listdir(file_path):
-                all_files.append(f"{file_path}{patient_file}")
+                all_files.append(f"{file_path}/{patient_file}")
 
         print("Custom Files...")
         print(f"Total number of files: {len(all_files)}")

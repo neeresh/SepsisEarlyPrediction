@@ -20,8 +20,8 @@ class DataSetup:
 
         self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
                                         'training_setA'),
-                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-                                        'training_setB')
+                           # os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                           #              'training_setB')
                            ]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
@@ -170,6 +170,48 @@ class DataSetup:
                 pickle.dump(training_examples, f)
 
             print(f"fill_missing_values() -> Dataset is saved under the name: {dataset_name}")
+
+        elif method == 'custom_fill':
+            mean_imputation = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'FiO2', 'pH', 'PaCO2',
+                               'SaO2', 'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Creatinine', 'Bilirubin_direct', 'Glucose',
+                               'Lactate', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'Fibrinogen', 'Platelets',
+                               'Age']
+            median_imputation = ['HCO3', 'Chloride', 'Magnesium', 'Phosphate', 'Potassium', 'PTT', 'WBC',
+                                 'HospAdmTime', 'ICULOS']
+            category_imputation = ['Gender', 'Unit1', 'Unit2']
+
+            all_data = pd.concat(training_files)
+            means = all_data.mean(axis=0, skipna=True)
+            medians = all_data.median(axis=0, skipna=True)
+
+            means.to_csv('means.csv', index=mean_imputation)
+            medians.to_csv('medians.csv', index=median_imputation)
+
+            training_examples = []
+            dataset_name = 'final_dataset.pickle'
+            print(f"Filling missing values with means, medians, and ")
+            for training_file in tqdm.tqdm(training_files, desc="Custom Imputation", total=len(training_files)):
+                example = pd.read_csv(training_file, sep=',')
+                example['FiO2'] = self.preprocess_fio2(example['FiO2'])
+
+                example[mean_imputation].fillna(means, inplace=True)
+                example[median_imputation].fillna(medians, inplace=True)
+
+                example['Unit1'] = example['Unit1'].fillna(0)
+                example['Unit2'] = example['Unit2'].fillna(0)
+
+                example.loc[example['Unit1'] == 0, 'Unit2'] = 1
+                example.loc[example['Unit2'] == 0, 'Unit1'] = 1
+
+                training_examples.append(example)
+
+                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
+
+            with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
+                pickle.dump(training_examples, f)
+
+            print(f"custom_fill() -> Dataset is saved under the name: {dataset_name}")
+
 
         else:
             dataset_name = 'training_ffill_bfill_zeros.pickle'
@@ -546,7 +588,7 @@ if __name__ == '__main__':
     final_dataset_pickle = setup.add_feature_informative_missingness(training_files=training_files)
 
     # Filling missing values and save csv files back; Output: training_ffill_bfill_zeros.pickle
-    saved_as = setup.fill_missing_values(pickle_file=final_dataset_pickle, method='ffill_bfill')
+    saved_as = setup.fill_missing_values(pickle_file=final_dataset_pickle, method='custom_fill')
     # saved_as = setup.fill_missing_values(pickle_file=training_files, method='ffill_bfill')
 
     # Sliding window features for vital signs; Output: final_dataset.pickle
@@ -561,8 +603,8 @@ if __name__ == '__main__':
     # is_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None).values
     # setup.save_filtered_data(dataset, is_sepsis)
 
-    # # Scaling features
-    # # Output: final_dataset.pickle
+    # Scaling features
+    # Output: final_dataset.pickle
     # saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
 
     # # Remove unwanted features
