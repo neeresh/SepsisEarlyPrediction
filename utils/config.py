@@ -9,7 +9,7 @@ transformer_rnn_param = {'input_size': 128, 'hidden_size': 39, 'num_of_heads': 3
 # gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,
 #              'lr': 1e-4, 'batch_size': 3, 'num_epochs': 30}
 gtn_param = {'d_model': 768, 'd_hidden': 2048, 'q': 16, 'v': 16, 'h': 16, 'N': 16, 'dropout': 0.2, 'pe': True, 'mask': True,
-             'lr': 1e-4, 'batch_size': 3, 'num_epochs': 30}
+             'lr': 1e-4, 'batch_size': 3, 'num_epochs': 50}
 gtn_cv_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,
              'lr': 1e-4, 'batch_size': 3, 'num_epochs': 50}
 # masked_gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --partition=umd-cscdr-gpu  # Job partition
-#SBATCH --cpus-per-task=16         # Number of CPU cores per task
+#SBATCH --cpus-per-task=12         # Number of CPU cores per task
 #SBATCH --time=32:00:00            # Walltime (hh:mm:ss)
 #SBATCH --nodes=1                  # Number of nodes
 #SBATCH --mem=32GB                 # Memory per node in GB
@@ -16,8 +16,8 @@ module load anaconda/2022.10
 echo "Activating conda environment..."
 conda activate /work/pi_mshao_umassd_edu/neeresh/envs/timeseries
 
-echo "Executing train_mask_gtn.py..."
-python train_mask_gtn.py
+echo "Executing train_gtn_mask.py..."
+python train_gtn_mask.py
 
 echo "Deactivating conda environment..."
 conda deactivate

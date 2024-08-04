@@ -45,6 +45,7 @@ class MultitaskTransformerModel(nn.Module):
 
     def __init__(self, task_type, device, nclasses, seq_len, batch, input_size, emb_size, nhead, nhid, nhid_tar,
                  nhid_task, nlayers, dropout=0.1):
+
         super(MultitaskTransformerModel, self).__init__()
         # from torch.nn import TransformerEncoder, TransformerEncoderLayer
 

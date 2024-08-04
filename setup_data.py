@@ -48,23 +48,14 @@ class DataSetup:
 
     def rewrite_csv(self, training_files):
 
-        lengths, is_sepsis, all_data, ind = [], [], np.zeros((1552210, 42)), 0  # (num_rows, features)
-        training_examples = []
-        for i, training_file in enumerate(
-                tqdm.tqdm(training_files, desc="Creating train.pickle, lengths_list, is_sepsis files",
-                          total=len(training_files))):
-            example = pd.read_csv(training_file, sep=',')
-            # example['PatientID'] = i
+        training_examples, lengths, is_sepsis = [], [], []
+        for i, training_file in enumerate(tqdm.tqdm(training_files, desc="Creating lengths_list, and is_sepsis files",
+                                                    total=len(training_files))):
 
+            example = pd.read_csv(training_file, sep=',')
             training_examples.append(example)
             is_sepsis.append(1 if 1 in example['SepsisLabel'].values else 0)
             lengths.append(len(example))
-
-            all_data[ind: ind + len(example), :] = example.values
-            ind += len(example)
-
-        # all_data = pd.DataFrame(all_data, columns=example.columns.values, index=None)
-        # all_data.to_csv(os.path.join(project_root(), 'data', 'processed', 'training_concatenated.csv'), index=False)
 
         with open(os.path.join(project_root(), 'data', 'processed', 'lengths.txt'), 'w') as f:
             [f.write(f'{l}\n') for l in lengths]
@@ -181,21 +172,20 @@ class DataSetup:
             category_imputation = ['Gender', 'Unit1', 'Unit2']
 
             all_data = pd.concat(training_files)
-            means = all_data.mean(axis=0, skipna=True)
-            medians = all_data.median(axis=0, skipna=True)
+            means = all_data[mean_imputation].mean(axis=0, skipna=True).round(2)
+            medians = all_data[median_imputation].median(axis=0, skipna=True).round(2)
 
             means.to_csv('means.csv', index=mean_imputation)
             medians.to_csv('medians.csv', index=median_imputation)
 
             training_examples = []
-            dataset_name = 'final_dataset.pickle'
-            print(f"Filling missing values with means, medians, and ")
+            print(f"Filling values using custom methods")
             for training_file in tqdm.tqdm(training_files, desc="Custom Imputation", total=len(training_files)):
-                example = pd.read_csv(training_file, sep=',')
+                example = training_file
                 example['FiO2'] = self.preprocess_fio2(example['FiO2'])
 
-                example[mean_imputation].fillna(means, inplace=True)
-                example[median_imputation].fillna(medians, inplace=True)
+                example[mean_imputation] = example[mean_imputation].fillna(means)
+                example[median_imputation] = example[median_imputation].fillna(medians)
 
                 example['Unit1'] = example['Unit1'].fillna(0)
                 example['Unit2'] = example['Unit2'].fillna(0)
@@ -203,15 +193,17 @@ class DataSetup:
                 example.loc[example['Unit1'] == 0, 'Unit2'] = 1
                 example.loc[example['Unit2'] == 0, 'Unit1'] = 1
 
+                example.ffill(inplace=True)
+                example.bfill(inplace=True)
+                example.fillna(value=0, inplace=True)
+
                 training_examples.append(example)
 
-                example.to_csv(os.path.join(self.destination_path, training_file), index=False)
-
+            dataset_name = 'final_dataset.pickle'
             with open(os.path.join(project_root(), 'data', 'processed', dataset_name), 'wb') as f:
                 pickle.dump(training_examples, f)
 
             print(f"custom_fill() -> Dataset is saved under the name: {dataset_name}")
-
 
         else:
             dataset_name = 'training_ffill_bfill_zeros.pickle'
@@ -318,7 +310,7 @@ class DataSetup:
             example[columns_to_scale] = pd.DataFrame(scaler.transform(example[columns_to_scale]))
             training_examples.append(example)
 
-        saved_as = 'final_dataset_scaled.pickle'
+        saved_as = 'final_dataset.pickle'
         with open(os.path.join(project_root(), 'data', 'processed', saved_as), 'wb') as f:
             pickle.dump(training_examples, f)
 
@@ -587,16 +579,15 @@ if __name__ == '__main__':
     # Add Feature Informative Missing-ness; Output: final_dataset.pickle
     final_dataset_pickle = setup.add_feature_informative_missingness(training_files=training_files)
 
-    # Filling missing values and save csv files back; Output: training_ffill_bfill_zeros.pickle
-    saved_as = setup.fill_missing_values(pickle_file=final_dataset_pickle, method='custom_fill')
-    # saved_as = setup.fill_missing_values(pickle_file=training_files, method='ffill_bfill')
+    # Filling missing values and save csv files back; Output: final_dataset.pickle
+    saved_as = setup.fill_missing_values(pickle_file='final_dataset.pickle', method='custom_fill')
 
     # Sliding window features for vital signs; Output: final_dataset.pickle
-    saved_as = setup.add_sliding_features_for_vital_signs(pickle_file=saved_as)
+    saved_as = setup.add_sliding_features_for_vital_signs(pickle_file='final_dataset.pickle')
 
     # Add features - Scores
     # Output: final_dataset.pickle
-    saved_as, added_features = setup.add_additional_features(pickle_file=saved_as)
+    saved_as, added_features = setup.add_additional_features(pickle_file='final_dataset.pickle')
 
     # # Filtering (14 timesteps)
     # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
@@ -605,7 +596,7 @@ if __name__ == '__main__':
 
     # Scaling features
     # Output: final_dataset.pickle
-    # saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
+    saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
 
     # # Remove unwanted features
     # # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)
