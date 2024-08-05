@@ -173,7 +173,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/masked_gtn/masked_gtn_setA_ori_dim_{config['num_epochs']}.pkl")
+    save_model(model, model_name=f"./saved_models/masked_gtn/masked_gtn_setA_huge_dim_{config['num_epochs']}.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -217,8 +217,9 @@ if __name__ == '__main__':
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.50).index
-    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
+    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.50).index
+    negative_sepsis_idxs = sepsis[sepsis == 0]
+    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)-
     np.random.shuffle(all_samples)
 
     print(f"Number of positive samples: {len(positive_sepsis_idxs)}")

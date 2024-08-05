@@ -172,7 +172,7 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = "./saved_models/masked_gtn/masked_gtn_setA_big_dim_50.pkl"
+    model_path = "./saved_models/masked_gtn/masked_gtn_setA_ori_dim_30.pkl"
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
                               pre_model="masked_gtn")
 
