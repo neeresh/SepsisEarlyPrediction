@@ -596,7 +596,7 @@ if __name__ == '__main__':
 
     # Scaling features
     # Output: final_dataset.pickle
-    saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
+    # saved_as = setup.scale_features(pickle_file="final_dataset.pickle")
 
     # # Remove unwanted features
     # # setup.remove_unwanted_features(case_num=1, additional_features=added_features, dataset_name=dataset_name)

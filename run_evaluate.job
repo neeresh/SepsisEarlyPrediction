@@ -16,7 +16,7 @@ module load anaconda/2022.10
 echo "Activating conda environment..."
 conda activate /work/pi_mshao_umassd_edu/neeresh/envs/timeseries
 
-echo "Executing train_gtn.py..."
+echo "Executing run_evaluate.py..."
 python run_evaluate.py
 
 echo "Deactivating conda environment..."

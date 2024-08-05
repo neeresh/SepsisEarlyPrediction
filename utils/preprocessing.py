@@ -8,6 +8,7 @@ from utils.add_features import *
 from utils.evaluate_helper_methods import t_suspicion
 from itertools import chain
 
+from sklearn.preprocessing import StandardScaler
 
 # FiO2 should be percentage between 0 and 1
 def preprocess_fio2(fio2):
@@ -110,8 +111,8 @@ def fill_missing_values(patient_data):
     means_series = pd.Series(means)
     median_series = pd.Series(medians)
 
-    patient_data = patient_data.fillna(value=means_series)
-    patient_data = patient_data.fillna(value=median_series)
+    patient_data[mean_imputation] = patient_data[mean_imputation].fillna(value=means_series)
+    patient_data[median_imputation] = patient_data[median_imputation].fillna(value=median_series)
 
     patient_data['Unit1'] = patient_data['Unit1'].fillna(0)
     patient_data['Unit2'] = patient_data['Unit2'].fillna(0)
@@ -238,6 +239,11 @@ def preprocessing(patient_data):
     patient_data = fill_missing_values(patient_data)
     patient_data = add_sliding_features_for_vital_signs(patient_data)
     patient_data = add_additional_features(patient_data)
+
+    # # Scaling
+    # columns = patient_data.columns
+    # scaler = StandardScaler()
+    # patient_data = pd.DataFrame(scaler.fit_transform(patient_data), columns=columns)
 
     return patient_data
 
