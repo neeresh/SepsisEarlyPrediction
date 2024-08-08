@@ -1,3 +1,4 @@
+from sklearn.utils import compute_class_weight
 from typing import Optional
 
 import logging
@@ -72,10 +73,12 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
         manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
 
-        label_smoothing = 0.05
-        print(f"Using label smoothing of {label_smoothing}")
-        logging.info(f"Using label smoothing of {label_smoothing}")
-        criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
+        # label_smoothing = 0.05
+        # print(f"Using label smoothing of {label_smoothing}")
+        # logging.info(f"Using label smoothing of {label_smoothing}")
+        # criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
+
+        criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
     else:
         criterion = nn.CrossEntropyLoss()
@@ -173,7 +176,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/masked_gtn/masked_gtn_setA_huge_dim_{config['num_epochs']}.pkl")
+    save_model(model, model_name=f"./saved_models/masked_gtn/masked_gtn_huge_dim_{config['num_epochs']}_weights.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -217,9 +220,9 @@ if __name__ == '__main__':
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.50).index
-    negative_sepsis_idxs = sepsis[sepsis == 0]
-    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)-
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.50).index
+    # negative_sepsis_idxs = sepsis[sepsis == 0]
+    all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
     np.random.shuffle(all_samples)
 
     print(f"Number of positive samples: {len(positive_sepsis_idxs)}")
@@ -233,8 +236,8 @@ if __name__ == '__main__':
     # Splitting dataset into train and test
     print(f"Total samples: {len(all_samples)}")
 
-    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
-    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
+    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.4, random_state=42)  # 60 40
+    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 20 20
 
     train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
         training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding_masking', num_workers=4,
@@ -259,8 +262,16 @@ if __name__ == '__main__':
 
     model = nn.DataParallel(model)
 
+    # Class weights
+    classes = np.unique(np.array(train_loader.dataset.labels).ravel())
+    class_weights = compute_class_weight(class_weight='balanced', classes=classes,
+                                         y=np.array(train_loader.dataset.labels))
+
+    class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to('cuda')
+
     # Training the model and saving metrics
-    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs)
+    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs, class_0_weight=class_weights_tensor[0],
+                          class_1_weight=class_weights_tensor[1])
 
     # Save test files in /localhost/.../test_data
     import glob

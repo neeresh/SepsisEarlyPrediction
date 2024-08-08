@@ -249,7 +249,7 @@ def get_train_test_indicies():
 
 def get_train_val_test_indices():
     is_sepsis_file = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None)
-    assert len(is_sepsis_file) == 40336, f"is_sepsis.txt didn't load properly"
+    assert len(is_sepsis_file) == 20336, f"is_sepsis.txt didn't load properly"
 
     train_temp, test = train_test_split(is_sepsis_file, test_size=0.2, random_state=42)
     train, val = train_test_split(train_temp, test_size=0.2, random_state=42)
@@ -328,14 +328,17 @@ class DatasetWithPaddingAndLengths(Dataset):
 
 
 def save_train_means(train_samples):
+    # mean_imputation = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'FiO2', 'pH', 'PaCO2', 'SaO2',
+    #                    'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Creatinine', 'Bilirubin_direct', 'Glucose',
+    #                    'Lactate', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'Fibrinogen', 'Platelets', 'Age']
     mean_imputation = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'FiO2', 'pH', 'PaCO2', 'SaO2',
-                       'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Creatinine', 'Bilirubin_direct', 'Glucose',
-                       'Lactate', 'Bilirubin_total', 'TroponinI', 'Hct', 'Hgb', 'Fibrinogen', 'Platelets', 'Age']
+                       'AST', 'BUN', 'Alkalinephos', 'Calcium', 'Creatinine', 'Glucose',
+                       'Lactate', 'Bilirubin_total', 'Hct', 'Hgb', 'Platelets', 'Age']
     median_imputation = ['HCO3', 'Chloride', 'Magnesium', 'Phosphate', 'Potassium', 'PTT', 'WBC', 'HospAdmTime',
                          'ICULOS']
     category_imputation = ['Gender', 'Unit1', 'Unit2']
 
-    features_list = get_features(case=None)
+    features_list = get_features(case=2) # Case 2 removes ['Bilirubin_direct', 'TroponinI', 'Fibrinogen'] features
 
     features = []
     for each_list in features_list:

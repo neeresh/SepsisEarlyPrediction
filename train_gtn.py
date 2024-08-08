@@ -2,6 +2,7 @@ import datetime
 import logging
 import numpy as np
 import os
+from sklearn.utils import compute_class_weight
 from typing import Optional
 
 import pandas as pd
@@ -61,16 +62,18 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
+
     # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
         manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+        criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
-        label_smoothing = 0.05
-        print(f"Using label smoothing of {label_smoothing}")
-        logging.info(f"Using label smoothing of {label_smoothing}")
-        criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
+        # label_smoothing = 0.05
+        # print(f"Using label smoothing of {label_smoothing}")
+        # logging.info(f"Using label smoothing of {label_smoothing}")
+        # criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
 
     else:
         criterion = nn.CrossEntropyLoss()
@@ -169,7 +172,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/gtn/gtn_setA_ori_dim_{config['num_epochs']}.pkl")
+    save_model(model, model_name=f"./saved_models/gtn/gtn_setA_huge_dim_{config['num_epochs']}_weights.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -230,8 +233,8 @@ if __name__ == '__main__':
     # Splitting dataset into train and test
     print(f"Total samples: {len(all_samples)}")
 
-    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
-    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
+    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.4, random_state=42)  # 60 40
+    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 20 20
 
     # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
     # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
@@ -267,7 +270,13 @@ if __name__ == '__main__':
     # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
     #                       class_1_weight=class_1_weight, epochs=num_epochs)
 
-    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs)
+    classes = np.unique(np.array(train_loader.dataset.labels).ravel())
+    class_weights = compute_class_weight(class_weight='balanced', classes=classes,
+                                         y=np.array(train_loader.dataset.labels))
+    class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to('cuda')
+
+    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs, class_0_weight=class_weights_tensor[0],
+                          class_1_weight=class_weights_tensor[1])
 
     # Save test files in /localhost/.../test_data
     import glob

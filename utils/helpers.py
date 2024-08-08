@@ -130,6 +130,11 @@ def get_features(case):
         demographics = demographics  # None removed
         print(f"Total number of features: {len(vital_signs) + len(demographics)}")
 
+    if case == 2:
+        laboratory_values.remove('Bilirubin_direct')
+        laboratory_values.remove('TroponinI')
+        laboratory_values.remove('Fibrinogen')
+
     else:
         print(f"Total number of features: {len(vital_signs) + len(laboratory_values) + len(demographics)}")
 

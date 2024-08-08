@@ -235,6 +235,7 @@ def add_additional_features(patient_data):
 
 def preprocessing(patient_data):
     patient_data['FiO2'] = preprocess_fio2(patient_data['FiO2'])
+    # patient_data = patient_data.drop(['Bilirubin_direct', 'TroponinI', 'Fibrinogen'], axis=1)
     patient_data = add_feature_informative_missingness(patient_data)
     patient_data = fill_missing_values(patient_data)
     patient_data = add_sliding_features_for_vital_signs(patient_data)
