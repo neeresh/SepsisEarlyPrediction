@@ -428,7 +428,7 @@ def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers
         print(f"Selected important features: Now: {train_samples[0].shape[1]}")
 
     # Saving means of train samples. (for evaluation)
-    save_train_means(train_samples)
+    # save_train_means(train_samples)
 
     # Operations on dataset
     if mode == "window":

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="nperla_umassd_edu@umd-cscdr-gpu002.unity.rc.umass.edu:22 agent" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="sepsis" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false" showDifferentInSync="false" showNewOnSourceInSync="false">
+    <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="nperla_umassd_edu@umd-cscdr-gpu002.unity.rc.umass.edu:22 agent">
+      <paths name="sepsis">
         <serverdata>
           <mappings>
             <mapping deploy="/home/nperla_umassd_edu/Documents/SepsisEarlyPrediction" local="$PROJECT_DIR$" />

@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/SepsisEarlyPrediction.iml" filepath="$PROJECT_DIR$/.idea/SepsisEarlyPrediction.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../vision-transformers/.idea/vision-transformers.iml" filepath="$PROJECT_DIR$/../vision-transformers/.idea/vision-transformers.iml" />
     </modules>
   </component>
 </project>

@@ -12,8 +12,8 @@ from models.vanilla.model.encoder import Encoder
 
 class Transformer(nn.Module):
 
-    def __init__(self,device, d_model=100, n_head=4, max_len=5000, seq_len=200,
-                 ffn_hidden=128, n_layers=2, drop_prob=0.1, details =False):
+    def __init__(self, device, d_model=100, n_head=4, max_len=5000, seq_len=200,
+                 ffn_hidden=128, n_layers=2, drop_prob=0.1, details=False):
         super().__init__() 
         self.device = device
         self.details = details 
@@ -22,7 +22,7 @@ class Transformer(nn.Module):
             out_features=d_model 
             )
    
-        self.pos_emb = PostionalEncoding( max_seq_len=max_len,batch_first=False, d_model=d_model, dropout=0.1) 
+        self.pos_emb = PostionalEncoding( max_seq_len=max_len, batch_first=False, d_model=d_model, dropout=0.1)
         self.encoder = Encoder(d_model=d_model,
                                n_head=n_head, 
                                ffn_hidden=ffn_hidden, 

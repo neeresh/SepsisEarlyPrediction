@@ -2,6 +2,7 @@ from torch.nn import Module
 import torch
 from torch.nn import CrossEntropyLoss
 
+
 class Myloss(Module):
     def __init__(self):
         super(Myloss, self).__init__()

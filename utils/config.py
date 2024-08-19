@@ -23,6 +23,11 @@ masked_gtn_param = {'d_model': 1024, 'd_hidden': 2048, 'q': 14, 'v': 14, 'h': 14
 modified_gtn_param = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True, 'mask': True,
              'lr': 1e-4, 'batch_size': 3, 'num_epochs': 10}
 
+vanilla_param = {'num_epochs': 10, 'batch_size': 3}
+
+pretrain_params = {'d_model': 512, 'd_hidden': 1024, 'q': 8, 'v': 8, 'h': 8, 'N': 8, 'dropout': 0.2, 'pe': True,
+                   'mask': True, 'lr': 1e-4, 'batch_size': 3, 'num_epochs': 100}
+
 # TARNet
 # Batch size should be divisible by len(train) and len(test)
 tarnet_param = {'task_type': 'classification', 'device': 'cuda', 'nclasses': 2, 'seq_len': 336, 'batch': 16,

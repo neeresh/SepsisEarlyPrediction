@@ -1,3 +1,4 @@
+
 from models.tarnet.multitask_transformer_class import MultitaskTransformerModel
 from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
     respiratory_rate_qsofa, sbp_qsofa, qsofa_score, q_sofa_indicator, sofa_indicator, detect_qsofa_change, \
@@ -13,7 +14,7 @@ from utils.helpers import get_features
 
 from utils.loader import make_loader
 
-from utils.config import gtn_param, tarnet_param, masked_gtn_param
+from utils.config import gtn_param, tarnet_param, masked_gtn_param, pretrain_params
 from torch.utils.data import DataLoader, ConcatDataset
 
 import torch
@@ -111,6 +112,18 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
                                           nhead=config['nhead'], nhid=config['nhid'], nhid_tar=config['nhid_tar'],
                                           nhid_task=config['nhid_task'], nlayers=config['nlayers'],
                                           dropout=config['dropout'], )
+
+        return load_model(model, model_name)
+
+    elif pre_model == 'pretrained_gtn':
+        config = pretrain_params
+        print(f"Loading from {model_name}...")
+        print(f"Loading original model...")
+
+        model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                            d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                            v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                            pe=config['pe'], mask=config['mask'], device=device).to(device)
 
         return load_model(model, model_name)
 
