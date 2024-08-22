@@ -20,20 +20,21 @@ setup_seed(30)
 reslut_figure_path = 'result_figure'
 save_model_path = os.path.join(project_root(), 'data', 'pretrain_datasets', 'saved_models')
 
-path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/AUSLAN/AUSLAN.mat'  # length=1140  input=136 channel=22 output=95
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/NetFlow/NetFlow.mat'  # length=803  input=997 channel=4 output=只有1和13
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/ArabicDigits/ArabicDigits.mat'  # length=6600  input=93 channel=13 output=10
+data_root = os.path.join(project_root(), 'data', 'pretrain_datasets')
+path = data_root + '/AUSLAN/AUSLAN.mat'  # length=1140  input=136 channel=22 output=95
+path = data_root + '/NetFlow/NetFlow.mat'  # length=803  input=997 channel=4 output=只有1和13
+path = data_root + '/ArabicDigits/ArabicDigits.mat'  # length=6600  input=93 channel=13 output=10
 
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/PEMS/PEMS.mat'  # length=267, input=144, channel=963, output=7
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/Wafer/Wafer.mat'  # length=298 input=198 channel=6, output=2
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/WalkvsRun/WalkvsRun.mat'  # length=28  input=1918 channel=62 output=2
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/ECG/ECG.mat'  # length=100  input=152 channel=2 output=2
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/KickvsPunch/KickvsPunch.mat'  # length=10  input=841 channel=62 output=2
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/UWave/UWave.mat'  # length=4278  input=315 channel=3 output=8
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/Libras/Libras.mat'  # length=180  input=45 channel=2 output=15
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/CharacterTrajectories/CharacterTrajectories.mat'  # length=300 input=205 channel=3 output=20
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/JapaneseVowels/JapaneseVowels.mat'  # length=270  input=29 channel=12 output=9
-# path = '/localscratch/neeresh/data/physionet2019/data/pretrain_datasets/CMUsubject16/CMUsubject16.mat'  # length=29  input=580 channel=62 output=2
+path = data_root + '/PEMS/PEMS.mat'  # length=267, input=144, channel=963, output=7
+path = data_root + '/Wafer/Wafer.mat'  # length=298 input=198 channel=6, output=2
+path = data_root + '/WalkvsRun/WalkvsRun.mat'  # length=28  input=1918 channel=62 output=2
+path = data_root + '/ECG/ECG.mat'  # length=100  input=152 channel=2 output=2
+path = data_root + '/KickvsPunch/KickvsPunch.mat'  # length=10  input=841 channel=62 output=2
+path = data_root + '/UWave/UWave.mat'  # length=4278  input=315 channel=3 output=8
+path = data_root + '/Libras/Libras.mat'  # length=180  input=45 channel=2 output=15
+path = data_root + '/CharacterTrajectories/CharacterTrajectories.mat'  # length=300 input=205 channel=3 output=20
+path = data_root + '/JapaneseVowels/JapaneseVowels.mat'  # length=270  input=29 channel=12 output=9
+path = data_root + '/CMUsubject16/CMUsubject16.mat'  # length=29  input=580 channel=62 output=2
 
 
 save_model_name = os.path.basename(path)
