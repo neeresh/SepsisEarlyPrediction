@@ -312,7 +312,7 @@ if __name__ == '__main__':
 
         # Saving Locally
         plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
-                                   save_path='./data/logs')  # Local
+                                   save_path='../data/logs')  # Local
 
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
                                save_path=destination_path)

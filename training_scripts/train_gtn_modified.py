@@ -1,10 +1,8 @@
-import datetime
-import logging
-import numpy as np
-import os
 from typing import Optional
 
-import pandas as pd
+import logging
+import numpy as np
+
 import torch
 import tqdm
 from sklearn.model_selection import train_test_split
@@ -12,15 +10,21 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-# from models.custom_models.gtn import GatedTransformerNetwork
-from models.gtn.transformer import Transformer
-from utils.config import gtn_cv_param
+from models.custom_models.modified_gtn import ModifiedGatedTransformerNetwork
+from utils.config import modified_gtn_param
 from utils.loader import make_loader
+
+import pandas as pd
+import datetime
+
+import os
+
+import logging
 from utils.path_utils import project_root
 from utils.plot_metrics import plot_losses_and_accuracies
 
 device = 'cuda'
-config = gtn_cv_param
+config = modified_gtn_param
 
 
 def _setup_destination(current_time):
@@ -61,6 +65,7 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
+
     # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
@@ -75,7 +80,6 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
     else:
         criterion = nn.CrossEntropyLoss()
 
-    # GTN
     optimizer = optim.Adagrad(model.parameters(), lr=config['lr'])  # GTN
     # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=epochs)  # Not in GTN Implementation
 
@@ -88,10 +92,10 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         correct_train, total_train = 0, 0
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
-        for inputs, labels in train_loader_tqdm:
+        for idx, (inputs, labels, lengths) in enumerate(train_loader_tqdm):
             optimizer.zero_grad()
 
-            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train')
+            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), lengths, 'train')
             loss = criterion(outputs, labels.to(device))
 
             loss.backward()
@@ -120,9 +124,9 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
             correct_val, total_val = 0, 0
 
             with torch.no_grad():
-                for inputs, labels in val_loader:
+                for idx, (inputs, labels, lengths) in enumerate(val_loader):
                     inputs, labels = inputs.to(device), labels.to(device)
-                    outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
+                    outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), lengths, 'test')
                     loss = criterion(outputs, labels)
                     running_val_loss += loss.item() * inputs.size(0)
                     _, predicted = torch.max(outputs, 1)
@@ -146,8 +150,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         with torch.no_grad():
             model.eval()
-            for inputs, labels in test_loader:
-                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test')
+            for idx, (inputs, labels, lengths) in enumerate(test_loader):
+                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), lengths, 'test')
                 loss = criterion(outputs, labels.to(device))
                 running_test_loss += loss.item() * inputs.size(0)
                 _, predicted = torch.max(outputs, 1)
@@ -169,7 +173,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/gtn_cv/gtn_final_{config['num_epochs']}.pkl")
+    save_model(model, model_name=f"./saved_models/modified_gtn/masked_gtn_final_{config['num_epochs']}_val.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -204,7 +208,6 @@ def load_model(model, model_name):
 
 
 if __name__ == '__main__':
-
     print(f"Using {torch.cuda.device_count()} GPUs...")
     logging.info(f"Using {torch.cuda.device_count()} GPUs...")
 
@@ -214,7 +217,7 @@ if __name__ == '__main__':
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index  # Changing from 0.20 to 0.30
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.20).index
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
     np.random.shuffle(all_samples)
 
@@ -229,20 +232,13 @@ if __name__ == '__main__':
     # Splitting dataset into train and test
     print(f"Total samples: {len(all_samples)}")
 
-    # train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
-    # val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
-    #
-    # train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
-    #     training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding', num_workers=4,
-    #     train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
-    #     select_important_features=False, include_val=True)
+    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
+    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
 
-    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
-    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-                                                                           batch_size=batch_size, mode='padding',
-                                                                           num_workers=4, train_indicies=train_indicies,
-                                                                           test_indicies=test_indicies,
-                                                                           include_val=False)
+    train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
+        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding_and_lengths', num_workers=4,
+        train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
+        select_important_features=False, include_val=True)
 
     # Model's input shape
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
@@ -255,40 +251,20 @@ if __name__ == '__main__':
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
     logging.info(f"Number of epochs: {num_epochs}")
 
-    # Cross validation
-    from torch.utils.data import TensorDataset
-    from sklearn.model_selection import KFold
+    model = ModifiedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                                          d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                                          v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                                          pe=config['pe'], mask=config['mask'], device=device).to(device)
 
-    data = torch.stack([train_loader.dataset[i][0] for i in range(len(train_loader.dataset))])
-    labels = torch.tensor([train_loader.dataset[i][1] for i in range(len(train_loader.dataset))])
+    model = nn.DataParallel(model)
 
-    kfold = KFold(n_splits=5, random_state=42, shuffle=True)
-
-    for train_index, test_index in kfold.split(data):
-        train_index = torch.tensor(train_index)
-        test_index = torch.tensor(test_index)
-
-        X_train_fold = data[train_index]
-        y_train_fold = labels[train_index]
-        X_test_fold = data[test_index]
-        y_test_fold = labels[test_index]
-
-        train_loader = DataLoader(TensorDataset(X_train_fold, y_train_fold), batch_size=3, shuffle=True)
-        test_loader = DataLoader(TensorDataset(X_test_fold, y_test_fold), batch_size=3, shuffle=False)
-
-        model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                            d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                            v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                            pe=config['pe'], mask=config['mask'], device=device).to(device)
-
-        model = nn.DataParallel(model)
-
-        metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
+    # Training the model and saving metrics
+    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs)
 
     # Save test files in /localhost/.../test_data
     import glob
 
-    test_data_path = os.path.join(project_root(), 'data', 'test_data')
+    test_data_path = os.path.join(project_root(), 'data', 'test_data', 'modified_gtn')
     os.makedirs(test_data_path, exist_ok=True)
 
     # Removing all files before uploading test data
@@ -329,7 +305,7 @@ if __name__ == '__main__':
 
         # Saving Locally
         plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
-                                   save_path='./data/logs')  # Local
+                                   save_path='../data/logs')  # Local
 
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
                                save_path=destination_path)

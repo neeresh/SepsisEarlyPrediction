@@ -2,7 +2,6 @@ import datetime
 import logging
 import numpy as np
 import os
-from sklearn.utils import compute_class_weight
 from typing import Optional
 
 import pandas as pd
@@ -15,13 +14,13 @@ from torch.utils.data import DataLoader
 
 # from models.custom_models.gtn import GatedTransformerNetwork
 from models.gtn.transformer import Transformer
-from utils.config import gtn_param
+from utils.config import gtn_cv_param
 from utils.loader import make_loader
 from utils.path_utils import project_root
 from utils.plot_metrics import plot_losses_and_accuracies
 
 device = 'cuda'
-config = gtn_param
+config = gtn_cv_param
 
 
 def _setup_destination(current_time):
@@ -62,18 +61,16 @@ def initialize_experiment(data_file):
 
 def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs: int, class_0_weight=None,
                 class_1_weight=None, val_loader: Optional[DataLoader] = None):
-
     # Use different class weights if specified
     if class_0_weight is not None and class_1_weight is not None:
         print(f"Using manual weights for classes 0 and 1")
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
         manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
-        criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
-        # label_smoothing = 0.05
-        # print(f"Using label smoothing of {label_smoothing}")
-        # logging.info(f"Using label smoothing of {label_smoothing}")
-        # criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
+        label_smoothing = 0.05
+        print(f"Using label smoothing of {label_smoothing}")
+        logging.info(f"Using label smoothing of {label_smoothing}")
+        criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
 
     else:
         criterion = nn.CrossEntropyLoss()
@@ -172,7 +169,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/gtn/gtn_setA_huge_dim_{config['num_epochs']}_weights.pkl")
+    save_model(model, model_name=f"./saved_models/gtn_cv/gtn_final_{config['num_epochs']}.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -217,8 +214,7 @@ if __name__ == '__main__':
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
-    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.20).index
-    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.50).index
+    negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.30).index  # Changing from 0.20 to 0.30
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
     np.random.shuffle(all_samples)
 
@@ -233,19 +229,20 @@ if __name__ == '__main__':
     # Splitting dataset into train and test
     print(f"Total samples: {len(all_samples)}")
 
-    train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.4, random_state=42)  # 60 40
-    val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 20 20
+    # train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)  # 80 20
+    # val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 10 10
+    #
+    # train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
+    #     training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding', num_workers=4,
+    #     train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
+    #     select_important_features=False, include_val=True)
 
-    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
-    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
-    #                                                                        batch_size=batch_size, mode='padding',
-    #                                                                        num_workers=4, train_indicies=train_indicies,
-    #                                                                        test_indicies=test_indicies, include_val=True)
-
-    train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
-        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding', num_workers=4,
-        train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
-        select_important_features=False, include_val=True)
+    train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
+    train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+                                                                           batch_size=batch_size, mode='padding',
+                                                                           num_workers=4, train_indicies=train_indicies,
+                                                                           test_indicies=test_indicies,
+                                                                           include_val=False)
 
     # Model's input shape
     (d_input, d_channel), d_output = train_loader.dataset.data[0].shape, 2  # (time_steps, features, num_classes)
@@ -258,30 +255,40 @@ if __name__ == '__main__':
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
     logging.info(f"Number of epochs: {num_epochs}")
 
-    model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                        d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                        v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                        pe=config['pe'], mask=config['mask'], device=device).to(device)
+    # Cross validation
+    from torch.utils.data import TensorDataset
+    from sklearn.model_selection import KFold
 
-    model = nn.DataParallel(model)
+    data = torch.stack([train_loader.dataset[i][0] for i in range(len(train_loader.dataset))])
+    labels = torch.tensor([train_loader.dataset[i][1] for i in range(len(train_loader.dataset))])
 
-    # class_0_weight = len(all_samples) / (len(negative_sepsis_idxs) * d_output)
-    # class_1_weight = len(all_samples) / (len(positive_sepsis_idxs) * d_output)
-    # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
-    #                       class_1_weight=class_1_weight, epochs=num_epochs)
+    kfold = KFold(n_splits=5, random_state=42, shuffle=True)
 
-    classes = np.unique(np.array(train_loader.dataset.labels).ravel())
-    class_weights = compute_class_weight(class_weight='balanced', classes=classes,
-                                         y=np.array(train_loader.dataset.labels))
-    class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to('cuda')
+    for train_index, test_index in kfold.split(data):
+        train_index = torch.tensor(train_index)
+        test_index = torch.tensor(test_index)
 
-    metrics = train_model(model, train_loader, val_loader, epochs=num_epochs, class_0_weight=class_weights_tensor[0],
-                          class_1_weight=class_weights_tensor[1])
+        X_train_fold = data[train_index]
+        y_train_fold = labels[train_index]
+        X_test_fold = data[test_index]
+        y_test_fold = labels[test_index]
+
+        train_loader = DataLoader(TensorDataset(X_train_fold, y_train_fold), batch_size=3, shuffle=True)
+        test_loader = DataLoader(TensorDataset(X_test_fold, y_test_fold), batch_size=3, shuffle=False)
+
+        model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                            d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                            v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                            pe=config['pe'], mask=config['mask'], device=device).to(device)
+
+        model = nn.DataParallel(model)
+
+        metrics = train_model(model, train_loader, test_loader, epochs=num_epochs)
 
     # Save test files in /localhost/.../test_data
     import glob
 
-    test_data_path = os.path.join(project_root(), 'data', 'test_data', 'gtn')
+    test_data_path = os.path.join(project_root(), 'data', 'test_data')
     os.makedirs(test_data_path, exist_ok=True)
 
     # Removing all files before uploading test data
@@ -322,7 +329,7 @@ if __name__ == '__main__':
 
         # Saving Locally
         plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
-                                   save_path='./data/logs')  # Local
+                                   save_path='../data/logs')  # Local
 
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
                                save_path=destination_path)

@@ -1,30 +1,16 @@
 
 from models.tarnet.multitask_transformer_class import MultitaskTransformerModel
-from utils.add_features import platelets_sofa, total_bilirubin_sofa, map_sofa, sofa_score, detect_sofa_change, \
-    respiratory_rate_qsofa, sbp_qsofa, qsofa_score, q_sofa_indicator, sofa_indicator, detect_qsofa_change, \
-    mortality_sofa, temp_sirs, heart_rate_sirs, resp_sirs, paco2_sirs, wbc_sirs, t_sofa, t_sepsis, hr_news, resp_news, \
-    temp_news, map_news, creatinine_news
 
-from train_gtn import load_model
-from models.custom_models.gtn import GatedTransformerNetwork  # Custom GTN
+from training_scripts.train_gtn import load_model
 from models.custom_models.modified_gtn import ModifiedGatedTransformerNetwork  # Modified GTN
 from models.custom_models.gtn_mask import MaskedGatedTransformerNetwork
 from models.gtn.transformer import Transformer  # Original GTN
 from utils.helpers import get_features
 
-from utils.loader import make_loader
-
 from utils.config import gtn_param, tarnet_param, masked_gtn_param, pretrain_params
-from torch.utils.data import DataLoader, ConcatDataset
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-import os
-import tqdm
-
-import numpy as np
 import pandas as pd
 
 device = 'cuda'

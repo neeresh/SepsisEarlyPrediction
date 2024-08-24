@@ -1,9 +1,11 @@
+import datetime
+import logging
+import numpy as np
+import os
 from sklearn.utils import compute_class_weight
 from typing import Optional
 
-import logging
-import numpy as np
-
+import pandas as pd
 import torch
 import tqdm
 from sklearn.model_selection import train_test_split
@@ -11,21 +13,15 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from models.custom_models.gtn_mask import MaskedGatedTransformerNetwork
-from utils.config import masked_gtn_param
+# from models.custom_models.gtn import GatedTransformerNetwork
+from models.gtn.transformer import Transformer
+from utils.config import gtn_param
 from utils.loader import make_loader
-
-import pandas as pd
-import datetime
-
-import os
-
-import logging
 from utils.path_utils import project_root
 from utils.plot_metrics import plot_losses_and_accuracies
 
 device = 'cuda'
-config = masked_gtn_param
+config = gtn_param
 
 
 def _setup_destination(current_time):
@@ -72,17 +68,17 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         print(f"Using manual weights for classes 0 and 1")
         logging.info(f"Class0 weight: {class_0_weight} & Class1 weight: {class_1_weight}")
         manual_weights = torch.tensor([class_0_weight, class_1_weight]).to(device)
+        criterion = nn.CrossEntropyLoss(weight=manual_weights)
 
         # label_smoothing = 0.05
         # print(f"Using label smoothing of {label_smoothing}")
         # logging.info(f"Using label smoothing of {label_smoothing}")
         # criterion = nn.CrossEntropyLoss(weight=manual_weights, label_smoothing=label_smoothing)
 
-        criterion = nn.CrossEntropyLoss(weight=manual_weights)
-
     else:
         criterion = nn.CrossEntropyLoss()
 
+    # GTN
     optimizer = optim.Adagrad(model.parameters(), lr=config['lr'])  # GTN
     # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=epochs)  # Not in GTN Implementation
 
@@ -95,10 +91,10 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         correct_train, total_train = 0, 0
 
         train_loader_tqdm = tqdm.tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}", unit="batch")
-        for idx, (inputs, labels, padded_masks) in enumerate(train_loader_tqdm):
+        for inputs, labels in train_loader_tqdm:
             optimizer.zero_grad()
 
-            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train', padded_masks)
+            outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'train')
             loss = criterion(outputs, labels.to(device))
 
             loss.backward()
@@ -127,9 +123,9 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
             correct_val, total_val = 0, 0
 
             with torch.no_grad():
-                for idx, (inputs, labels, padded_masks) in enumerate(val_loader):
+                for inputs, labels in val_loader:
                     inputs, labels = inputs.to(device), labels.to(device)
-                    outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test', padded_masks)
+                    outputs, _, _, _, _, _, _ = model(inputs.to(torch.float32), 'test')
                     loss = criterion(outputs, labels)
                     running_val_loss += loss.item() * inputs.size(0)
                     _, predicted = torch.max(outputs, 1)
@@ -153,8 +149,8 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
 
         with torch.no_grad():
             model.eval()
-            for idx, (inputs, labels, padded_masks) in enumerate(test_loader):
-                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test', padded_masks)
+            for inputs, labels in test_loader:
+                outputs, _, _, _, _, _, _ = model(inputs.to(device).to(torch.float32), 'test')
                 loss = criterion(outputs, labels.to(device))
                 running_test_loss += loss.item() * inputs.size(0)
                 _, predicted = torch.max(outputs, 1)
@@ -176,7 +172,7 @@ def train_model(model, train_loader: DataLoader, test_loader: DataLoader, epochs
         logging.info(message)
 
     # Saving the model
-    save_model(model, model_name=f"./saved_models/masked_gtn/masked_gtn_huge_dim_{config['num_epochs']}_weights.pkl")
+    save_model(model, model_name=f"./saved_models/gtn/gtn_setA_huge_dim_{config['num_epochs']}_weights.pkl")
 
     return {"train_loss": train_losses, "val_loss": val_losses if val_loader else None, "test_loss": test_losses,
             "train_accuracy": train_accuracies, "val_accuracy": val_accuracies if val_loader else None,
@@ -211,6 +207,7 @@ def load_model(model, model_name):
 
 
 if __name__ == '__main__':
+
     print(f"Using {torch.cuda.device_count()} GPUs...")
     logging.info(f"Using {torch.cuda.device_count()} GPUs...")
 
@@ -220,8 +217,8 @@ if __name__ == '__main__':
 
     sepsis = pd.Series(is_sepsis)
     positive_sepsis_idxs = sepsis[sepsis == 1].index
+    # negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.20).index
     negative_sepsis_idxs = sepsis[sepsis == 0].sample(frac=0.50).index
-    # negative_sepsis_idxs = sepsis[sepsis == 0]
     all_samples = list(positive_sepsis_idxs) + list(negative_sepsis_idxs)
     np.random.shuffle(all_samples)
 
@@ -239,8 +236,14 @@ if __name__ == '__main__':
     train_indicies, temp_indicies = train_test_split(all_samples, test_size=0.4, random_state=42)  # 60 40
     val_indicies, test_indicies = train_test_split(temp_indicies, test_size=0.5, random_state=42)  # 20 20
 
+    # train_indicies, test_indicies = train_test_split(all_samples, test_size=0.2, random_state=42)
+    # train_loader, test_loader, train_indicies, test_indicies = make_loader(training_examples, lengths_list, is_sepsis,
+    #                                                                        batch_size=batch_size, mode='padding',
+    #                                                                        num_workers=4, train_indicies=train_indicies,
+    #                                                                        test_indicies=test_indicies, include_val=True)
+
     train_loader, val_loader, test_loader, train_indicies, val_indices, test_indicies = make_loader(
-        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding_masking', num_workers=4,
+        training_examples, lengths_list, is_sepsis, batch_size=batch_size, mode='padding', num_workers=4,
         train_indicies=train_indicies, test_indicies=test_indicies, val_indicies=val_indicies,
         select_important_features=False, include_val=True)
 
@@ -255,28 +258,30 @@ if __name__ == '__main__':
     logging.info(f"d_input: {d_input}, d_channel: {d_channel}, d_output: {d_output}")
     logging.info(f"Number of epochs: {num_epochs}")
 
-    model = MaskedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                                          d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                                          v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                          pe=config['pe'], mask=config['mask'], device=device).to(device)
+    model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+                        d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                        v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                        pe=config['pe'], mask=config['mask'], device=device).to(device)
 
     model = nn.DataParallel(model)
 
-    # Class weights
+    # class_0_weight = len(all_samples) / (len(negative_sepsis_idxs) * d_output)
+    # class_1_weight = len(all_samples) / (len(positive_sepsis_idxs) * d_output)
+    # metrics = train_model(model, train_loader, test_loader, class_0_weight=class_0_weight,
+    #                       class_1_weight=class_1_weight, epochs=num_epochs)
+
     classes = np.unique(np.array(train_loader.dataset.labels).ravel())
     class_weights = compute_class_weight(class_weight='balanced', classes=classes,
                                          y=np.array(train_loader.dataset.labels))
-
     class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32).to('cuda')
 
-    # Training the model and saving metrics
     metrics = train_model(model, train_loader, val_loader, epochs=num_epochs, class_0_weight=class_weights_tensor[0],
                           class_1_weight=class_weights_tensor[1])
 
     # Save test files in /localhost/.../test_data
     import glob
 
-    test_data_path = os.path.join(project_root(), 'data', 'test_data', 'masked_gtn')
+    test_data_path = os.path.join(project_root(), 'data', 'test_data', 'gtn')
     os.makedirs(test_data_path, exist_ok=True)
 
     # Removing all files before uploading test data
@@ -317,7 +322,7 @@ if __name__ == '__main__':
 
         # Saving Locally
         plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
-                                   save_path='./data/logs')  # Local
+                                   save_path='../data/logs')  # Local
 
     plot_losses_and_accuracies(train_losses, test_losses, train_accuracies, test_accuracies,
                                save_path=destination_path)
