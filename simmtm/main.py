@@ -77,7 +77,8 @@ def main(args, configs, seed=None):
     # sourcedata_path = f"./dataset/{sourcedata}"  # './data/Epilepsy'
     # targetdata_path = f"./dataset/{targetdata}"
 
-    dataset_path = "/localscratch/neeresh/data/physionet2019/data/simmtm_datasets/datasets/classification/dataset"
+    # dataset_path = "/localscratch/neeresh/data/physionet2019/data/simmtm_datasets/datasets/classification/dataset"
+    dataset_path = "/home/cis/Documents/SepsisEarlyPrediction/data/simmtm_datasets/datasets/classification/dataset"
     sourcedata_path = f"{dataset_path}/{sourcedata}"
     targetdata_path = f"{dataset_path}/{targetdata}"
 

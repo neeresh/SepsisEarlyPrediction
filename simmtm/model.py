@@ -1,6 +1,6 @@
 from torch import nn
 import torch
-from simmtm.loss import ContrastiveWeight, AggregationRebuild, AutomaticWeightedLoss
+from models.simmtm.utils import ContrastiveWeight, AggregationRebuild, AutomaticWeightedLoss
 
 
 class TFC(nn.Module):
@@ -42,24 +42,38 @@ class TFC(nn.Module):
             self.awl = AutomaticWeightedLoss(2)
             self.contrastive = ContrastiveWeight(args)
             self.aggregation = AggregationRebuild(args)
-            self.head = nn.Linear(1280, 178)
+            self.head = nn.Linear(1280, 178)  # 178 cuz TSlength_aligned is 178
             self.mse = torch.nn.MSELoss()
 
     def forward(self, x_in_t, pretrain=False):
 
         if pretrain:
-            x = self.conv_block1(x_in_t)
-            x = self.conv_block2(x)
-            x = self.conv_block3(x)
 
-            h = x.reshape(x.shape[0], -1)
-            z = self.dense(h)
+            # x_in_t: torch.Size([128, 1, 178])
 
+            x = self.conv_block1(x_in_t)  # torch.Size([128, 32, 31])
+            x = self.conv_block2(x)  # torch.Size([128, 64, 17])
+            x = self.conv_block3(x)  # torch.Size([128, 128, 10])
+            h = x.reshape(x.shape[0], -1)  # torch.Size([128, 1280])
+            z = self.dense(h)  # torch.Size([128, 128])
+
+            # loss_cl: torch.Size([])
+            # similarity_matrix: torch.Size([128, 128])
+            # logits: torch.Size([128, 127])
             loss_cl, similarity_matrix, logits, positives_mask = self.contrastive(z)
+
+            # rebuild_weight_matrix: torch.Size([128, 128])
+            # agg_x: torch.Size([128, 128, 10])
             rebuild_weight_matrix, agg_x = self.aggregation(similarity_matrix, x)
+
+            # pred_x: torch.Size([128, 178])
             pred_x = self.head(agg_x.reshape(agg_x.size(0), -1))
 
+            # loss_rb: torch.Size([])
+            # Reconstruction input x_in_t
             loss_rb = self.mse(pred_x, x_in_t.reshape(x_in_t.size(0), -1).detach())
+
+            # loss: torch.Size([])
             loss = self.awl(loss_cl, loss_rb)
 
             return loss, loss_cl, loss_rb

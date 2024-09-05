@@ -1,5 +1,6 @@
 class Config(object):
     def __init__(self):
+
         # model configs
         self.input_channels = 1
         self.increased_dim = 1

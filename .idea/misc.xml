@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="timeseries" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="/work/pi_mshao_umassd_edu/neeresh/envs/timeseries" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="timeseries" project-jdk-type="Python SDK" />
 </project>

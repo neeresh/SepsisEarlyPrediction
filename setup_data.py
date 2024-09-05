@@ -560,6 +560,22 @@ class DataSetup:
             csv_file_name = file_name.split('/')[-1].replace('.csv', '.csv')
             patient_data.to_csv(os.path.join(destination_path, csv_file_name), index=False)
 
+    def create_pickle_debug(self, training_files):
+
+        training_examples = []
+        for training_file in tqdm.tqdm(training_files, desc="Creating a pickle file",
+                                       total=len(training_files)):
+            training_file = pd.read_csv(training_file)
+            training_examples.append(training_file)
+
+        save_as = "final_dataset.pickle"
+        with open(os.path.join(project_root(), 'data', 'processed', save_as), 'wb') as f:
+            pickle.dump(training_examples, f)
+
+        print(f"create_pickle_debug() -> created pickle file: {save_as}")
+
+        return save_as
+
 
 if __name__ == '__main__':
     setup = DataSetup()
@@ -573,8 +589,10 @@ if __name__ == '__main__':
     training_files.sort()
     setup.rewrite_csv(training_files=training_files)
 
-    # Add Feature Informative Missing-ness; Output: final_dataset.pickle
-    final_dataset_pickle = setup.add_feature_informative_missingness(training_files=training_files)
+    # # Add Feature Informative Missing-ness; Output: final_dataset.pickle
+    # final_dataset_pickle = setup.add_feature_informative_missingness(training_files=training_files)
+
+    final_dataset_pickle = setup.create_pickle_debug(training_files)  # Just for debuging purposes
 
     # # Remove unwanted features
     # setup.remove_unwanted_features(dataset_name="final_dataset.pickle",
