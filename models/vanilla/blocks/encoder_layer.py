@@ -22,7 +22,7 @@ class EncoderLayer(nn.Module):
     def forward(self, x):
         # 1. compute self attention
         _x = x
-        x = self.attention(q=x, k=x, v=x )
+        x = self.attention(q=x, k=x, v=x)
         
         if self.details: print('in encoder layer : '+ str(x.size()))
         # 2. add and norm

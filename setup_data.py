@@ -20,8 +20,8 @@ class DataSetup:
 
         self.data_paths = [os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
                                         'training_setA'),
-                           os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-                                        'training_setB')
+                           # os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                           #              'training_setB')
                            ]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
@@ -542,6 +542,24 @@ class DataSetup:
             psv_file_name = file_name.split('/')[-1].replace('.csv', '.psv')
             patient_data.to_csv(os.path.join(destination_path, psv_file_name), sep='|', index=False)
 
+    def convert_pickle_to_csv(self, pickle_file):
+
+        training_files = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', pickle_file))
+
+        # Just for file names
+        csv_path = os.path.join(project_root(), 'data', 'csv')
+        file_names = [os.path.join(csv_path, f) for f in os.listdir(csv_path) if f.endswith('.csv')]
+        file_names.sort()
+
+        destination_path = os.path.join(project_root(), 'data', 'pt_files')
+
+        for i, (patient_data, file_name) in enumerate(
+                tqdm.tqdm(zip(training_files, file_names), desc="Converting csv to .pt",
+                          total=len(training_files))):
+            patient_data = patient_data.drop(['PatientID', 'SepsisLabel'], axis=1)
+            csv_file_name = file_name.split('/')[-1].replace('.csv', '.csv')
+            patient_data.to_csv(os.path.join(destination_path, csv_file_name), index=False)
+
 
 if __name__ == '__main__':
     setup = DataSetup()
@@ -565,14 +583,14 @@ if __name__ == '__main__':
     # Filling missing values and save csv files back; Output: final_dataset.pickle
     saved_as = setup.fill_missing_values(pickle_file='final_dataset.pickle', method='custom_fill')
 
-    # Sliding window features for vital signs; Output: final_dataset.pickle
-    saved_as = setup.add_sliding_features_for_vital_signs(pickle_file='final_dataset.pickle')
+    # # Sliding window features for vital signs; Output: final_dataset.pickle
+    # saved_as = setup.add_sliding_features_for_vital_signs(pickle_file='final_dataset.pickle')
 
-    # Add features - Scores
-    # Output: final_dataset.pickle
-    saved_as, added_features = setup.add_additional_features(pickle_file='final_dataset.pickle')
+    # # Add features - Scores
+    # # Output: final_dataset.pickle
+    # saved_as, added_features = setup.add_additional_features(pickle_file='final_dataset.pickle')
 
-    # # Filtering (14 timesteps)
+    # Filtering (14 timesteps)
     # dataset = pd.read_pickle(os.path.join(project_root(), 'data', 'processed', dataset_name))
     # is_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'processed', 'is_sepsis.txt'), header=None).values
     # setup.save_filtered_data(dataset, is_sepsis)
@@ -583,3 +601,5 @@ if __name__ == '__main__':
 
     # # Convert all files to psv in test folder (for evaluation)
     # setup.convert_csv_to_psv(pickle_file='final_dataset.pickle')
+
+    setup.convert_pickle_to_csv(pickle_file='final_dataset.pickle')
