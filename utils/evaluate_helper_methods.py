@@ -1,4 +1,7 @@
+import os.path
 
+from models.simmtm.config import Config
+from models.simmtm.model import TFC, target_classifier
 from models.tarnet.multitask_transformer_class import MultitaskTransformerModel
 
 from training_scripts.train_gtn import load_model
@@ -7,11 +10,14 @@ from models.custom_models.gtn_mask import MaskedGatedTransformerNetwork
 from models.gtn.transformer import Transformer  # Original GTN
 from utils.helpers import get_features
 
-from utils.config import gtn_param, tarnet_param, masked_gtn_param, pretrain_params
+from utils.config import gtn_param, tarnet_param, masked_gtn_param, pretrain_params, modified_gtn_param
 
 import torch
 
 import pandas as pd
+
+from utils.path_utils import project_root
+from utils.pretrain_utils.get_args import get_args
 
 device = 'cuda'
 
@@ -36,7 +42,7 @@ def load_model(model, model_name="model_gtn.pkl"):
 
     device = 'cuda'
 
-    print(f"Loading {model_name} GTN model...")
+    print(f"Loading {model_name}...")
     model.load_state_dict(torch.load(model_name))
 
     print(f"Model is set to eval() mode...")
@@ -76,6 +82,7 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         return load_model(model, model_name)
 
     elif pre_model == 'modified_gtn':
+        config = modified_gtn_param
         print(f"Loading from {model_name}...")
         print("Loading modified gtn model")
         model = ModifiedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
@@ -112,6 +119,27 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
                             pe=config['pe'], mask=config['mask'], device=device).to(device)
 
         return load_model(model, model_name)
+
+    elif pre_model == 'simmtm':
+        config = Config()
+        args, unknown = get_args()
+
+        chkpoint = torch.load(model_name)  # Model Path
+        print(f"Loading pre-trained model: {pre_model} from {model_name}...")
+
+        model = TFC(configs=config, args=args)
+        pretrained_dict = chkpoint["model_state_dict"]
+        model_dict = model.state_dict()
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+
+        classifier = target_classifier(configs=config)
+        pretrained_classifier_dict = chkpoint["classifier"]
+        classifier_dict = classifier.state_dict()
+        classifier_dict.update(pretrained_classifier_dict)
+        classifier.load_state_dict(classifier_dict)
+
+        return model, classifier
 
     else:
         ValueError(f"Couldn't find requested model: {model_name}")

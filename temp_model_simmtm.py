@@ -62,11 +62,11 @@ def model_pretrain(model, model_optimizer, model_scheduler, train_loader, config
 
 def build_model(args, lr, configs, device='cuda', chkpoint=None):
     model = TFC(configs, args).to(device)
-    if chkpoint:
-        pretrained_dict = chkpoint["model_state_dict"]
-        model_dict = model.state_dict()
-        model_dict.update(pretrained_dict)
-        model.load_state_dict(model_dict)
+
+    pretrained_dict = chkpoint
+    model_dict = model.state_dict()
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict)
 
     classifier = target_classifier(configs).to(device)
     model_optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(configs.beta1, configs.beta2), weight_decay=0)
@@ -79,8 +79,8 @@ def build_model(args, lr, configs, device='cuda', chkpoint=None):
 
 
 def model_finetune(model, val_dl, device, model_optimizer, model_scheduler, classifier=None, classifier_optimizer=None):
-
-    model.train()
+    model.train()  # Not freezing the pretrained layers
+    # model.eval() # Freezing the pretrained layers
     classifier.train()
 
     total_loss = []
@@ -150,10 +150,10 @@ def model_finetune(model, val_dl, device, model_optimizer, model_scheduler, clas
     # model_scheduler.step(total_loss)
     model_scheduler.step()
 
-    return total_loss, total_acc, total_auc, total_prc, fea_concat_flat, trgs, F1
+    return model, classifier, total_loss, total_acc, total_auc, total_prc, fea_concat_flat, trgs, F1
 
 
-def train(model, args, config, train_loader, finetune_loader):
+def train(model, args, config, train_loader):
     params_group = [{'params': model.parameters()}]
     model_optimizer = torch.optim.Adam(params_group, lr=args.pretrain_lr,
                                        betas=(config.beta1, config.beta2),
@@ -165,7 +165,7 @@ def train(model, args, config, train_loader, finetune_loader):
     os.makedirs(os.path.join(experiment_log_dir, f"saved_models"), exist_ok=True)
 
     best_performance = None
-    for epoch in range(1, config.pretrain_epoch+1):
+    for epoch in range(1, config.pretrain_epoch + 1):
         total_loss, total_cl_loss, total_rb_loss = model_pretrain(model=model, model_optimizer=model_optimizer,
                                                                   model_scheduler=model_scheduler,
                                                                   train_loader=train_loader,
@@ -176,41 +176,40 @@ def train(model, args, config, train_loader, finetune_loader):
         chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': total_loss, 'model_state_dict': model.state_dict()}
         torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'ckp_ep{epoch}.pt'))
 
-        # Fine-tuning
-        if epoch % 2 == 0:
-            ft_model, ft_classifier, ft_model_optimizer, ft_classifier_optimizer, ft_scheduler = build_model(
-                args, args.lr, config, device='cuda', chkpoint=chkpoint)
 
-            for ep in range(1, config.finetune_epoch + 1):
-                valid_loss, valid_acc, valid_auc, valid_prc, emb_finetune, label_finetune, F1 = model_finetune(
-                    ft_model, finetune_loader, 'cuda', ft_model_optimizer, ft_scheduler, classifier=ft_classifier,
-                    classifier_optimizer=ft_classifier_optimizer)
+def finetune(finetune_loader, args, config, chkpoint):
+
+    ft_model, ft_classifier, ft_model_optimizer, ft_classifier_optimizer, ft_scheduler = build_model(
+        args, args.lr, config, device='cuda', chkpoint=chkpoint)
+
+    experiment_log_dir = os.path.join(project_root(), 'results', 'simmtm')
+    os.makedirs(os.path.join(experiment_log_dir, f"saved_models"), exist_ok=True)
+
+    for ep in range(1, config.finetune_epoch + 1):
+        ft_model, classifier, valid_loss, valid_acc, valid_auc, valid_prc, emb_finetune, label_finetune, F1 = model_finetune(
+            ft_model, finetune_loader, 'cuda', ft_model_optimizer, ft_scheduler, classifier=ft_classifier,
+            classifier_optimizer=ft_classifier_optimizer)
 
         print("Fine-tuning ended ....")
+        print(f"epoch: {ep}")
         print("=" * 100)
         print(f"valid_auc: {valid_auc} valid_prc: {valid_prc} F1: {F1}")
         print(f"valid_loss: {valid_loss} valid_acc: {valid_acc}")
         print("=" * 100)
 
+        # Saving feature encoder and classifier after finetuning for testing.
+        chkpoint = {'seed': args.seed, 'epoch': ep, 'train_loss': valid_loss, 'model_state_dict': ft_model.state_dict(),
+                    'classifier': classifier.state_dict()}
+        torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'finetune_ep{ep}.pt'))
+
 
 if __name__ == '__main__':
 
-    # Gathering datasets
-    pt_train, finetune, test = get_pretrain_finetune_test_datasets()
+    pretrain_exp = False
 
     # Gathering args and configs
     args, unknown = get_args()
     config = Config()
-
-    # Train set
-    pt_dataset = Load_Dataset(pt_train, TSlength_aligned=336, training_mode='pretrain')
-    train_loader = DataLoader(dataset=pt_dataset, batch_size=config.batch_size, shuffle=True,
-                              drop_last=True, num_workers=4)
-
-    # Finetune set
-    finetune_dataset = Load_Dataset(finetune, TSlength_aligned=336, training_mode='finetune')
-    finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True,
-                                 drop_last=True, num_workers=4)
 
     # Model
     model = TFC(configs=config, args=args)
@@ -218,14 +217,30 @@ if __name__ == '__main__':
     # Model size
     get_model_size(model)
 
-    # Training
-    train(model, args, config, train_loader, finetune_loader)
+    # Gathering dataset (test psv files are also saved here)
+    pt_train, ft, test = get_pretrain_finetune_test_datasets()
 
-    # Finetune set
-    test_dataset = Load_Dataset(test, TSlength_aligned=336, training_mode='finetune')
-    finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True,
-                                 drop_last=True, num_workers=4)
+    if pretrain_exp:
 
-    # Saving test set (for evaluation)
-    destination_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm')
-    torch.save(test, destination_path + '/test.pt')
+        # Train set
+        pt_dataset = Load_Dataset(pt_train, TSlength_aligned=336, training_mode='pretrain')
+        train_loader = DataLoader(dataset=pt_dataset, batch_size=config.batch_size, shuffle=True,
+                                  drop_last=True, num_workers=4)
+
+        # Training
+        train(model, args, config, train_loader)
+
+        # Saving test set (for evaluation)
+        destination_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm')
+        torch.save(test, destination_path + '/test.pt')
+
+    else:
+
+        # Gathering dataset
+        finetune_dataset = Load_Dataset(ft, TSlength_aligned=336, training_mode='finetune')
+        finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True,
+                                     drop_last=True, num_workers=4)
+
+        # Fine tuning
+        chkpoint = torch.load(os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'ckp_ep9.pt'))['model_state_dict']
+        finetune(finetune_loader, args, config, chkpoint)

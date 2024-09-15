@@ -253,6 +253,19 @@ def get_pretrain_finetune_test_datasets():
     print("Pre-training samples: ", pt_train['samples'].shape)
     print("Fine-tuning samples: ", finetune['samples'].shape, "Test samples: ", test['samples'].shape)
 
+    # Saving original test psv files (for evaluation)
+    test_setB_all_files = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+                                       'training_setB')
+    test_setB_files = os.listdir(os.path.join(test_setB_all_files))
+    test_setB_files.sort()
+    test_setB_files.remove('index.html')
+
+    test_setB_files = [test_setB_files[i] for i in test_indices]
+    save_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm', 'psv_files')
+    for pidx in tqdm.tqdm(test_setB_files, desc="Saving test data (as psv files)", total=len(test_setB_files)):
+        pdata = pd.read_csv(os.path.join(test_setB_all_files, pidx), sep='|')
+        pdata.to_csv(os.path.join(save_path, pidx), sep='|', index=False)
+
     return pt_train, finetune, test
 
 # pt_train, finetune, test = get_pretrain_finetune_datasets()

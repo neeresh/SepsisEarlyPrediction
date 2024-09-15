@@ -13,7 +13,7 @@ class Config(object):
         self.mask = True
         self.lr = 1e-4
         self.batch_size = 16
-        self.num_epochs = 30
+        self.num_epochs = 20
 
         self.device = 'cuda'
 
@@ -24,7 +24,7 @@ class Config(object):
 
         # pre-train configs
         self.pretrain_epoch = 10
-        self.finetune_epoch = 50
+        self.finetune_epoch = 20
 
         # fine-tune configs
         self.num_classes_target = 2

@@ -17,7 +17,7 @@ echo "Activating conda environment..."
 conda activate /work/pi_mshao_umassd_edu/neeresh/envs/timeseries
 
 echo "Executing run_evaluate.py..."
-python run_evaluate.py
+python eval_simmtm.py
 
 echo "Deactivating conda environment..."
 conda deactivate
