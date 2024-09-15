@@ -4,10 +4,10 @@ import torch.nn.functional as F
 
 
 class AutomaticWeightedLoss(torch.nn.Module):
-    """automatically weighted multi-task loss
+    """automatically weighted multitask loss
     Params：
         num: int，the number of loss
-        x: multi-task loss
+        x: multitask loss
     Examples：
         loss1=1
         loss2=2

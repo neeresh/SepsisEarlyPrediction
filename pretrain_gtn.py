@@ -122,7 +122,6 @@ def train():
             optimizer.zero_grad()
 
             y_pre, _, _, _, _, _, _ = net(x.to(DEVICE), 'train')
-
             loss = loss_function(y_pre, y.to(DEVICE))
 
             # print(f'Epoch:{index + 1}:\t\tloss:{loss.item()}')

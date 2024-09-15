@@ -55,6 +55,25 @@ def set_seed(seed):
     return seed
 
 
+def get_model_size(model):
+    def convert_to_gigabytes(input_megabyte):
+        gigabyte = 1.0 / 1024
+        convert_gb = gigabyte * input_megabyte
+        return convert_gb
+
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+
+    size_all_mb = (param_size + buffer_size) / 1024 ** 2
+
+    print('model size: {:.3f} GB'.format(convert_to_gigabytes(size_all_mb)))
+
+
 def main(args, configs, seed=None):
     method = 'SimMTM'
     sourcedata = args.pretrain_dataset
@@ -77,8 +96,8 @@ def main(args, configs, seed=None):
     # sourcedata_path = f"./dataset/{sourcedata}"  # './data/Epilepsy'
     # targetdata_path = f"./dataset/{targetdata}"
 
-    # dataset_path = "/localscratch/neeresh/data/physionet2019/data/simmtm_datasets/datasets/classification/dataset"
-    dataset_path = "/home/cis/Documents/SepsisEarlyPrediction/data/simmtm_datasets/datasets/classification/dataset"
+    dataset_path = "/localscratch/neeresh/data/physionet2019/data/simmtm_datasets/datasets/classification/dataset"
+    # dataset_path = "/home/cis/Documents/SepsisEarlyPrediction/data/simmtm_datasets/datasets/classification/dataset"
     sourcedata_path = f"{dataset_path}/{sourcedata}"
     targetdata_path = f"{dataset_path}/{targetdata}"
 
@@ -116,6 +135,8 @@ def main(args, configs, seed=None):
 
     # Load Model
     model = TFC(configs, args).to(device)
+    get_model_size(model)
+
     params_group = [{'params': model.parameters()}]
     model_optimizer = torch.optim.Adam(params_group, lr=pretrain_lr, betas=(configs.beta1, configs.beta2),
                                        weight_decay=0)
@@ -133,8 +154,7 @@ if __name__ == '__main__':
     print("Args: ")
     print(args)
     device = torch.device(args.device)
-    exec (f'from config_files.{args.pretrain_dataset}_Configs import Config as Configs')
+    exec(f'from config_files.{args.pretrain_dataset}_Configs import Config as Configs')
     configs = Configs()
 
     main(args, configs)
-

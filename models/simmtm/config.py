@@ -12,7 +12,7 @@ class Config(object):
         self.pe = True
         self.mask = True
         self.lr = 1e-4
-        self.batch_size = 32
+        self.batch_size = 16
         self.num_epochs = 30
 
         self.device = 'cuda'
@@ -22,27 +22,12 @@ class Config(object):
         self.d_channel = 40
         self.d_output = 2
 
-        # # model configs
-        # self.input_channels = 1
-        # self.increased_dim = 1
-        # self.final_out_channels = 128
-        # self.num_classes = 5
-        # self.num_classes_target = 8
-        # self.dropout = 0.2
-        # self.masking_ratio = 0.5
-        # self.lm = 3  # average length of masking subsequences
-        #
-        # self.kernel_size = 25
-        # self.stride = 3
-        # self.features_len = 127
-        # self.features_len_f = self.features_len
-        #
-        # self.TSlength_aligned = 336
-        #
-        # self.CNNoutput_channel = 10  # 90 # 10 for Epilepsy model
+        # pre-train configs
+        self.pretrain_epoch = 10
+        self.finetune_epoch = 300
 
-        # training configs
-        self.num_epoch = 40
+        # fine-tune configs
+        self.num_classes_target = 2
 
         # optimizer parameters
         self.optimizer = 'adam'
@@ -55,7 +40,6 @@ class Config(object):
         self.drop_last = True
         self.batch_size = 32
 
-        """For Epilepsy, the target batchsize is 60"""
         # self.target_batch_size = 32  # the size of target dataset (the # of samples used to fine-tune).
 
         self.Context_Cont = Context_Cont_configs()
