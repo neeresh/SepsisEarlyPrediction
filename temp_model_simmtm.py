@@ -229,7 +229,3 @@ if __name__ == '__main__':
     # Saving test set (for evaluation)
     destination_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm')
     torch.save(test, destination_path + '/test.pt')
-
-    # Convert datasets to simmtm format
-    # csv_to_pt(patient_files, lengths, is_sepsis, desc)
-
