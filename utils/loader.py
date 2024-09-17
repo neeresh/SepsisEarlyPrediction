@@ -370,6 +370,7 @@ def save_train_means(train_samples):
 
 def make_loader(examples, lengths_list, is_sepsis, batch_size, mode, num_workers=4, train_indicies=None,
                 test_indicies=None, val_indicies=None, select_important_features=False, include_val=False):
+
     # Loading data from given indicies
     if train_indicies is None and test_indicies is None:
         print("Loading data from pre-defined indicies")

@@ -1,16 +1,22 @@
 import numpy as np
 import os
+import pandas as pd
 
 import torch
 import tqdm
 from torch import nn
 from torch.utils.data import DataLoader
 
-from models.simmtm.config import Config
-from models.simmtm.masking import data_transform_masked4cl
-from models.simmtm.model import TFC, target_classifier
+from models.gtn.config import Config
+from models.gtn.transformer import Transformer
+from utils.loader import DatasetWithPadding
+
+# from models.simmtm.masking import data_transform_masked4cl
+# from models.simmtm.model import TFC, target_classifier
+
 from utils.model_size import get_model_size
 from utils.path_utils import project_root
+
 from utils.pretrain_utils.data import get_pretrain_finetune_test_datasets, csv_to_pt, Load_Dataset
 from utils.pretrain_utils.get_args import get_args
 
@@ -61,21 +67,25 @@ def model_pretrain(model, model_optimizer, model_scheduler, train_loader, config
 
 
 def build_model(args, lr, configs, device='cuda', chkpoint=None):
-    model = TFC(configs, args).to(device)
+    # DONE
+    model = Transformer(d_model=config.d_model, d_input=config.d_input,
+                        d_channel=config.d_channel, d_output=config.d_output,
+                        d_hidden=config.d_hidden, q=config.q, v=config.v,
+                        h=config.h, N=config.N, device=config.device,
+                        dropout=config.dropout, pe=config.pe, mask=config.mask)
 
     pretrained_dict = chkpoint
     model_dict = model.state_dict()
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
 
-    classifier = target_classifier(configs).to(device)
     model_optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(configs.beta1, configs.beta2), weight_decay=0)
-    classifier_optimizer = torch.optim.Adam(classifier.parameters(), lr=lr,
+    classifier_optimizer = torch.optim.Adam(model.parameters(), lr=lr,
                                             betas=(configs.beta1, configs.beta2),
                                             weight_decay=0)
     model_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=model_optimizer, T_max=args.finetune_epoch)
 
-    return model, classifier, model_optimizer, classifier_optimizer, model_scheduler
+    return model, model_optimizer, classifier_optimizer, model_scheduler
 
 
 def model_finetune(model, val_dl, device, model_optimizer, model_scheduler, classifier=None, classifier_optimizer=None):
@@ -205,94 +215,65 @@ def finetune(finetune_loader, args, config, chkpoint):
 
 if __name__ == '__main__':
 
-    pretrain_exp = False
+    pretrain_exp = True
 
     # Gathering args and configs
-    args, unknown = get_args()
     config = Config()
+    args = get_args()
 
     # Model
-    model = TFC(configs=config, args=args)
+    model = Transformer(d_model=config.d_model, d_input=config.d_input,
+                        d_channel=config.d_channel, d_output=config.d_output,
+                        d_hidden=config.d_hidden, q=config.q, v=config.v,
+                        h=config.h, N=config.N, device=config.device,
+                        dropout=config.dropout, pe=config.pe, mask=config.mask)
 
     # Model size
     get_model_size(model)
 
-    # Gathering dataset (test psv files are also saved here)
-    pt_train, ft, test = get_pretrain_finetune_test_datasets()
+    # Get pretrain, finetune datasets from .../tl_datasets/pretrain and .../tl_datasets/finetune
+    # Pre-training
+    pt_pickle = pd.read_pickle(os.path.join(project_root(), 'data', 'tl_datasets', 'final_dataset_pretrain_A.pickle'))
+
+    pt_files = []
+    for pdata in tqdm.tqdm(pt_pickle, desc='Preparing pretraining dataset', total=len(pt_pickle)):
+        pt_files.append(pdata)
+
+    pt_lengths = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'lengths_pretrain_A.txt'),
+                             header=None).values.squeeze()
+    pt_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'is_sepsis_pretrain_A.txt'),
+                            header=None).values.squeeze()
+
+    print(f"Pre-training files: {len(pt_files), len(pt_sepsis), len(pt_lengths)}")
+
+    # Fine-tuning
+    ft_files = torch.load(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'finetune.pt'))['samples']
+    ft_lengths = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'lengths.txt'),
+                             header=None).values.squeeze()
+    ft_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'is_sepsis.txt'),
+                            header=None).values.squeeze()
 
     if pretrain_exp:
 
         # Train set
-        pt_dataset = Load_Dataset(pt_train, TSlength_aligned=336, training_mode='pretrain')
-        train_loader = DataLoader(dataset=pt_dataset, batch_size=config.batch_size, shuffle=True,
-                                  drop_last=True, num_workers=4)
+        pt_train = DatasetWithPadding(training_examples_list=pt_files, lengths_list=pt_lengths,
+                                      is_sepsis=pt_sepsis)
+        train_loader = DataLoader(pt_train, batch_size=config.batch_size, shuffle=False,
+                                  num_workers=config.num_workers)
 
         # Training
         train(model, args, config, train_loader)
 
-        # Saving test set (for evaluation)
-        destination_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm')
-        torch.save(test, destination_path + '/test.pt')
-
     else:
+        # Handle data correctly. ft_files is already a tensor of (4000, 336, 40).
+        # Convert into loader with batch size and finetune.
 
         # Gathering dataset
-        finetune_dataset = Load_Dataset(ft, TSlength_aligned=336, training_mode='finetune')
-        finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True,
-                                     drop_last=True, num_workers=4)
+        ft = DatasetWithPadding(training_examples_list=ft_files, lengths_list=ft_lengths,
+                                is_sepsis=ft_sepsis)
+        finetune_loader = DataLoader(ft, batch_size=config.batch_size, shuffle=False,
+                                     num_workers=config.num_workers)
 
         # Fine tuning
         chkpoint = torch.load(os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'ckp_ep9.pt'))['model_state_dict']
         finetune(finetune_loader, args, config, chkpoint)
-
-
-"""
-Utility Score: 0.26
-class Config(object):
-    def __init__(self):
-
-        # GTN
-        self.d_model = 512
-        self.d_hidden = 1024
-        self.q = 8
-        self.v = 8
-        self.h = 8
-        self.N = 8
-        self.dropout = 0.2
-        self.pe = True
-        self.mask = True
-        self.lr = 1e-4
-        self.batch_size = 16
-        self.num_epochs = 20
-
-        self.device = 'cuda'
-
-        # Dataset params
-        self.d_input = 336
-        self.d_channel = 40
-        self.d_output = 2
-
-        # pre-train configs
-        self.pretrain_epoch = 10
-        self.finetune_epoch = 20
-
-        # fine-tune configs
-        self.num_classes_target = 2
-
-        # optimizer parameters
-        self.optimizer = 'adam'
-        self.beta1 = 0.9
-        self.beta2 = 0.99
-        self.lr = 3e-8  # 3e-4
-        self.lr_f = self.lr
-
-        # data parameters
-        self.drop_last = True
-        self.batch_size = 32
-
-        # self.target_batch_size = 32  # the size of target dataset (the # of samples used to fine-tune).
-
-        self.Context_Cont = Context_Cont_configs()
-        self.TC = TC()
-        self.augmentation = augmentations()
-"""
