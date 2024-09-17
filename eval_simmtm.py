@@ -96,7 +96,6 @@ def get_sepsis_score(data, model, classifier):
 
 
 def evaluate():
-
     input_directory = os.path.join(project_root(), 'data', 'test_data', 'simmtm', 'psv_files')
     output_directory = "./predictions/"
 
@@ -112,9 +111,10 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'finetune_ep16.pt')
-    model, classifier = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
-                              pre_model="simmtm")
+    model_path = os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'finetune_ep2.pt')
+    model, classifier = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output,
+                                          model_name=model_path,
+                                          pre_model="simmtm")
 
     # Iterate over files.
     # files = files[:3000]
