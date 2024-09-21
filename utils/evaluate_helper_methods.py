@@ -109,18 +109,43 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         return load_model(model, model_name)
 
     elif pre_model == 'pretrained_gtn':
-        config = pretrain_params
-        print(f"Loading from {model_name}...")
-        print(f"Loading original model...")
 
-        model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                            d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                            v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                            pe=config['pe'], mask=config['mask'], device=device).to(device)
+        from models.gtn.config import Config
 
-        return load_model(model, model_name)
+        config = Config()
+        # args, unknown = get_args()
+
+        chkpoint = torch.load(model_name)  # Model Path
+        print(f"Loading pre-trained model: {pre_model} from {model_name}...")
+
+        model = Transformer(d_model=config.d_model, d_input=config.d_input,
+                            d_channel=config.d_channel, d_output=config.d_output,
+                            d_hidden=config.d_hidden, q=config.q, v=config.v,
+                            h=config.h, N=config.N, device=config.device,
+                            dropout=config.dropout, pe=config.pe, mask=config.mask)
+
+        pretrained_dict = chkpoint["model_state_dict"]
+        model_dict = model.state_dict()
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+
+        return model
+
+        # config = pretrain_params
+        # print(f"Loading from {model_name}...")
+        # print(f"Loading original model...")
+        #
+        # model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
+        #                     d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+        #                     v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+        #                     pe=config['pe'], mask=config['mask'], device=device).to(device)
+        #
+        # return load_model(model, model_name)
 
     elif pre_model == 'simmtm':
+
+        from models.simmtm.config import Config
+
         config = Config()
         args, unknown = get_args()
 
@@ -128,6 +153,31 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         print(f"Loading pre-trained model: {pre_model} from {model_name}...")
 
         model = TFC(configs=config, args=args)
+        pretrained_dict = chkpoint["model_state_dict"]
+        model_dict = model.state_dict()
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+
+        classifier = target_classifier(configs=config)
+        pretrained_classifier_dict = chkpoint["classifier"]
+        classifier_dict = classifier.state_dict()
+        classifier_dict.update(pretrained_classifier_dict)
+        classifier.load_state_dict(classifier_dict)
+
+        return model, classifier
+
+    elif pre_model == 'pretrained_tfc':
+
+        from models.tfc.config import Config
+        from models.tfc.model import TFC, target_classifier
+
+        config = Config()
+        args, unknown = get_args()
+
+        chkpoint = torch.load(model_name)  # Model Path
+        print(f"Loading pre-trained model: {pre_model} from {model_name}...")
+
+        model = TFC(configs=config)
         pretrained_dict = chkpoint["model_state_dict"]
         model_dict = model.state_dict()
         model_dict.update(pretrained_dict)
@@ -184,7 +234,7 @@ def load_challenge_data(file):
 def save_challenge_predictions(file, scores, labels):
     """
     Writes output to the "predictions" directory
-    Format: 
+    Format:
     PredictedProbability|PredictedLabel
         0.1|0
         0.2|0
