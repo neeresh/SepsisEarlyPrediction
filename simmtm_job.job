@@ -14,10 +14,10 @@ echo "Loading modules..."
 module load anaconda/2022.10
 
 echo "Activating conda environment..."
-conda activate /work/pi_mshao_umassd_edu/neeresh/envs/timeseries
+conda activate /work/pi_mshao_umassd_edu/neeresh/envs/pytorch
 
-echo "Executing temp_model_simmtm.py..."
-python temp_model_simmtm.py
+echo "Executing eval_gtn.py..."
+python eval_gtn.py
 
 echo "Deactivating conda environment..."
 conda deactivate

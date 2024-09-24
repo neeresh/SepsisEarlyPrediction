@@ -23,10 +23,10 @@ def model_pretrain(model, model_optimizer, train_loader, config, device):
 
     global loss, loss_t, loss_f, l_TF, loss_c, data_test, data_f_test
 
-    model_optimizer.zero_grad()
-
     for batch_idx, (data, labels, aug1, data_f, aug1_f) in tqdm.tqdm(enumerate(train_loader), desc='Pre-training model',
                                                                      total=len(train_loader)):
+        model_optimizer.zero_grad()
+
         data, labels = data.float().to(device), labels.long().to(device)
         aug1 = aug1.float().to(device)
         data_f, aug1_f = data_f.float().to(device), aug1_f.float().to(device)
@@ -38,11 +38,11 @@ def model_pretrain(model, model_optimizer, train_loader, config, device):
         """Compute Pre-train loss"""
         """NTXentLoss: normalized temperature-scaled cross entropy loss. From SimCLR"""
         nt_xent_criterion = NTXentLoss_poly(device, config.batch_size, config.Context_Cont.temperature,
-                                            config.Context_Cont.use_cosine_similarity)  # device, 128, 0.2, True
+                                            config.Context_Cont.use_cosine_similarity)
 
         loss_t = nt_xent_criterion(h_t, h_t_aug)
         loss_f = nt_xent_criterion(h_f, h_f_aug)
-        l_TF = nt_xent_criterion(z_t, z_f)  # this is the initial version of TF loss
+        l_TF = nt_xent_criterion(z_t, z_f)
 
         l_1, l_2, l_3 = nt_xent_criterion(z_t, z_f_aug), nt_xent_criterion(z_t_aug, z_f), nt_xent_criterion(z_t_aug,
                                                                                                             z_f_aug)
@@ -92,6 +92,7 @@ def build_model(args, lr, configs, device='cuda', chkpoint=None):
     model.load_state_dict(model_dict)
 
     classifier = target_classifier(configs).to(device)
+
     model_optimizer = torch.optim.Adam(model.parameters(), lr=configs.lr, betas=(configs.beta1, configs.beta2),
                                        weight_decay=configs.weight_decay)
     classifier_optimizer = torch.optim.Adam(model.parameters(), lr=configs.lr,
@@ -172,6 +173,7 @@ def model_finetune(model, model_optimizer, val_dl, config, classifier=None, clas
         total_auc.append(auc_bs)
         total_prc.append(prc_bs)
         total_loss.append(loss.item())
+
         loss.backward()
         model_optimizer.step()
         classifier_optimizer.step()
@@ -237,7 +239,19 @@ def finetune(finetune_loader, args, config, chkpoint):
             torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'finetune_ep{epoch}.pt'))
 
 
+def set_seed(seed):
+    SEED = seed
+    torch.manual_seed(SEED)
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(SEED)
+
+    return seed
+
+
 if __name__ == '__main__':
+
+    seed = set_seed(2024)
 
     pretrain_exp = False
 
@@ -267,5 +281,5 @@ if __name__ == '__main__':
 
         chkpoint = torch.load(os.path.join(project_root(), 'results', 'tfc', 'saved_models', 'ckp_ep20.pt'))[
             'model_state_dict']
-        
+
         finetune(finetune_loader, args, configs, chkpoint)

@@ -174,7 +174,7 @@ def train(model, args, config, train_loader):
               f'CL Loss: {total_cl_loss:.4f}\t RB Loss: {total_rb_loss:.4f}\n')
 
         chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': total_loss, 'model_state_dict': model.state_dict()}
-        torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'ckp_ep{epoch}.pt'))
+        torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/train_on_finetune/", f'ckp_ep{epoch}.pt'))
 
 
 def finetune(finetune_loader, args, config, chkpoint):
@@ -220,30 +220,35 @@ if __name__ == '__main__':
     # Gathering dataset (test psv files are also saved here)
     pt_train, ft, test = get_pretrain_finetune_test_datasets()
 
-    if pretrain_exp:
+    ft_dataset = Load_Dataset(ft, TSlength_aligned=336, training_mode='pretrain')
+    train_loader = DataLoader(dataset=ft_dataset, batch_size=config.batch_size, shuffle=True,
+                              drop_last=True, num_workers=4)
+    train(model, args, config, train_loader)
 
-        # Train set
-        pt_dataset = Load_Dataset(pt_train, TSlength_aligned=336, training_mode='pretrain')
-        train_loader = DataLoader(dataset=pt_dataset, batch_size=config.batch_size, shuffle=True,
-                                  drop_last=True, num_workers=4)
-
-        # Training
-        train(model, args, config, train_loader)
-
-        # Saving test set (for evaluation)
-        destination_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm')
-        torch.save(test, destination_path + '/test.pt')
-
-    else:
-
-        # Gathering dataset
-        finetune_dataset = Load_Dataset(ft, TSlength_aligned=336, training_mode='finetune')
-        finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True,
-                                     drop_last=True, num_workers=4)
-
-        # Fine tuning
-        chkpoint = torch.load(os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'ckp_ep9.pt'))['model_state_dict']
-        finetune(finetune_loader, args, config, chkpoint)
+    # if pretrain_exp:
+    #
+    #     # Train set
+    #     pt_dataset = Load_Dataset(pt_train, TSlength_aligned=336, training_mode='pretrain')
+    #     train_loader = DataLoader(dataset=pt_dataset, batch_size=config.batch_size, shuffle=True,
+    #                               drop_last=True, num_workers=4)
+    #
+    #     # Training
+    #     train(model, args, config, train_loader)
+    #
+    #     # Saving test set (for evaluation)
+    #     destination_path = os.path.join(project_root(), 'data', 'test_data', 'simmtm')
+    #     torch.save(test, destination_path + '/test.pt')
+    #
+    # else:
+    #
+    #     # Gathering dataset
+    #     finetune_dataset = Load_Dataset(ft, TSlength_aligned=336, training_mode='finetune')
+    #     finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True,
+    #                                  drop_last=True, num_workers=4)
+    #
+    #     # Fine tuning
+    #     chkpoint = torch.load(os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'ckp_ep9.pt'))['model_state_dict']
+    #     finetune(finetune_loader, args, config, chkpoint)
 
 
 """

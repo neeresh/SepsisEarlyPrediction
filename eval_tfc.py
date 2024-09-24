@@ -11,6 +11,7 @@ from utils.get_true_labels import get_true_labels
 
 import torch.nn.functional as F
 from utils.preprocessing import preprocessing, pad_rows
+import torch.fft as fft
 
 import tqdm
 
@@ -69,7 +70,8 @@ def get_sepsis_score(data, model, classifier):
     patient_data = torch.from_numpy(patient_data)  # (336, 191)
     patient_data = patient_data.unsqueeze(0)
 
-    # print(patient_data.shape, mask.shape)
+    # Data in frequency domain
+    patient_data_f = fft.fft(patient_data).abs().to(device)
 
     # Predictions
     model.eval()
@@ -80,11 +82,9 @@ def get_sepsis_score(data, model, classifier):
 
     with torch.no_grad():
         patient_data = patient_data.to(device)
-        h, z = model(stage='test', x_in_t=patient_data, pre_train=False)
-        h, z = model(x_in_t, x_in_f, stage='test')
-        fea_concat = h
+        h_t, z_t, h_f, z_f = model(patient_data, patient_data_f, stage='test')
+        fea_concat = torch.cat((z_t, z_f), dim=1)
         outputs = classifier(fea_concat)
-
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
 
@@ -112,7 +112,7 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = os.path.join(project_root(), 'results', 'tfc', 'saved_models', 'finetune_ep19.pt')
+    model_path = os.path.join(project_root(), 'results', 'tfc', 'saved_models', 'finetune_ep20.pt')
     model, classifier = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output,
                                           model_name=model_path, pre_model="pretrained_tfc")
 

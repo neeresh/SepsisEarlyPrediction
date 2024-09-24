@@ -260,11 +260,11 @@ def get_pretrain_finetune_test_datasets():
     test_setB_files.sort()
     test_setB_files.remove('index.html')
 
-    test_setB_files = [test_setB_files[i] for i in test_indices]
-    save_path = os.path.join(project_root(), 'data', 'tl_datasets', 'test', 'psv_files')
-    for pidx in tqdm.tqdm(test_setB_files, desc="Saving test data (as psv files)", total=len(test_setB_files)):
-        pdata = pd.read_csv(os.path.join(test_setB_all_files, pidx), sep='|')
-        pdata.to_csv(os.path.join(save_path, pidx), sep='|', index=False)
+    # test_setB_files = [test_setB_files[i] for i in test_indices]
+    # save_path = os.path.join(project_root(), 'data', 'tl_datasets', 'test', 'psv_files')
+    # for pidx in tqdm.tqdm(test_setB_files, desc="Saving test data (as psv files)", total=len(test_setB_files)):
+    #     pdata = pd.read_csv(os.path.join(test_setB_all_files, pidx), sep='|')
+    #     pdata.to_csv(os.path.join(save_path, pidx), sep='|', index=False)
 
     # Saving original finetune psv files (for evaluation)
     test_setB_all_files = os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0',
@@ -273,11 +273,11 @@ def get_pretrain_finetune_test_datasets():
     test_setB_files.sort()
     test_setB_files.remove('index.html')
 
-    test_setB_files = [test_setB_files[i] for i in finetune_indices]
-    save_path = os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'psv_files')
-    for pidx in tqdm.tqdm(test_setB_files, desc="Saving finetune data (as psv files)", total=len(test_setB_files)):
-        pdata = pd.read_csv(os.path.join(test_setB_all_files, pidx), sep='|')
-        pdata.to_csv(os.path.join(save_path, pidx), sep='|', index=False)
+    # test_setB_files = [test_setB_files[i] for i in finetune_indices]
+    # save_path = os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'psv_files')
+    # for pidx in tqdm.tqdm(test_setB_files, desc="Saving finetune data (as psv files)", total=len(test_setB_files)):
+    #     pdata = pd.read_csv(os.path.join(test_setB_all_files, pidx), sep='|')
+    #     pdata.to_csv(os.path.join(save_path, pidx), sep='|', index=False)
 
     # Saving finetune lengths and sepsis
     finetune_lengths_path = os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'lengths.txt')

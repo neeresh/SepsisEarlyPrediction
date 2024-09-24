@@ -55,7 +55,6 @@ class TFC(nn.Module):
 
         if pre_train:
             encoding_1 = self.embedding_channel(x_in_t)  # (128, 336, 512)
-            input_to_gather = encoding_1
 
             if self.pe:
                 pe = torch.ones_like(encoding_1[0])
@@ -73,7 +72,6 @@ class TFC(nn.Module):
                 encoding_1, score_input = encoder(encoding_1, stage)
 
             encoding_2 = self.embedding_input(x_in_t.transpose(-1, -2))
-            channel_to_gather = encoding_2
 
             for encoder in self.encoder_list_2:
                 encoding_2, score_channel = encoder(encoding_2, stage)
@@ -101,7 +99,6 @@ class TFC(nn.Module):
 
         else:
             encoding_1 = self.embedding_channel(x_in_t)  # (128, 336, 512)
-            input_to_gather = encoding_1
 
             if self.pe:
                 pe = torch.ones_like(encoding_1[0])
@@ -119,7 +116,6 @@ class TFC(nn.Module):
                 encoding_1, score_input = encoder(encoding_1, stage)
 
             encoding_2 = self.embedding_input(x_in_t.transpose(-1, -2))
-            channel_to_gather = encoding_2
 
             for encoder in self.encoder_list_2:
                 encoding_2, score_channel = encoder(encoding_2, stage)

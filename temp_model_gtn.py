@@ -25,7 +25,8 @@ from sklearn.metrics import (roc_auc_score, average_precision_score, accuracy_sc
 class FinetuneDatasetFromPTFile(Dataset):
     def __init__(self, data_tensor, labels):
         self.data = data_tensor
-        self.labels = torch.tensor(labels, dtype=torch.float32)
+        # self.labels = torch.tensor(labels, dtype=torch.float32)
+        self.labels = torch.tensor(labels)
 
     def __len__(self):
         return self.data.shape[0]
@@ -63,7 +64,6 @@ def model_pretrain(model, model_optimizer, model_scheduler, train_loader, config
 
 
 def build_model(args, lr, configs, device='cuda', chkpoint=None):
-
     model = Transformer(d_model=config.d_model, d_input=config.d_input,
                         d_channel=config.d_channel, d_output=config.d_output,
                         d_hidden=config.d_hidden, q=config.q, v=config.v,
@@ -82,7 +82,6 @@ def build_model(args, lr, configs, device='cuda', chkpoint=None):
 
 
 def model_finetune(model, val_dl, device, model_optimizer, model_scheduler):
-
     model.train()  # Not freezing the pretrained layers
     # model.eval() # Freezing the pretrained layers
 
@@ -209,16 +208,17 @@ def train(model, args, config, train_loader):
     with open(log_file_path, 'a') as log_file:
         for epoch in range(1, config.pretrain_epoch + 1):
             total_loss = model_pretrain(model=model, model_optimizer=model_optimizer,
-                                                                      model_scheduler=model_scheduler,
-                                                                      train_loader=train_loader,
-                                                                      configs=config, args=args, device='cuda')
+                                        model_scheduler=model_scheduler,
+                                        train_loader=train_loader,
+                                        configs=config, args=args, device='cuda')
             log_text = f'Pre-training Epoch: {epoch}\t Train Loss: {total_loss:.4f}\t'
 
             print(log_text)
             log_file.write(log_text)
 
-            chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': total_loss, 'model_state_dict': model.state_dict()}
-            torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'ckp_ep{epoch}.pt'))
+            chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': total_loss,
+                        'model_state_dict': model.state_dict()}
+            torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/train_on_finetune", f'ckp_ep{epoch}.pt'))
 
 
 def finetune(finetune_loader, args, config, chkpoint):
@@ -234,12 +234,12 @@ def finetune(finetune_loader, args, config, chkpoint):
                 ft_model, finetune_loader, 'cuda', ft_model_optimizer, ft_scheduler)
 
             log_text = (f"Fine-tuning ended ....\n"
-                f"{'=' * 100}\n"
-                f"epoch: {ep}\n"
-                f"valid_auc: {valid_auc} valid_prc: {valid_prc} F1: {F1}\n"
-                f"valid_loss: {valid_loss} valid_acc: {valid_acc}\n"
-                f"{'=' * 100}\n"
-            )
+                        f"{'=' * 100}\n"
+                        f"epoch: {ep}\n"
+                        f"valid_auc: {valid_auc} valid_prc: {valid_prc} F1: {F1}\n"
+                        f"valid_loss: {valid_loss} valid_acc: {valid_acc}\n"
+                        f"{'=' * 100}\n"
+                        )
 
             print(log_text)
             log_file.write(log_text)
@@ -251,7 +251,6 @@ def finetune(finetune_loader, args, config, chkpoint):
 
 
 if __name__ == '__main__':
-
     pretrain_exp = False
 
     # Gathering args and configs
@@ -268,45 +267,58 @@ if __name__ == '__main__':
     # Model size
     get_model_size(model)
 
-    if pretrain_exp:
+    # Train on Finetune
+    ft_files = torch.load(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'finetune.pt'))['samples']
+    ft_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'is_sepsis.txt'),
+                            header=None).values.squeeze()
 
-        # Get pretrain, finetune datasets from .../tl_datasets/pretrain and .../tl_datasets/finetune
-        # Pre-training
-        pt_pickle = pd.read_pickle(
-            os.path.join(project_root(), 'data', 'tl_datasets', 'final_dataset_pretrain_A.pickle'))
+    # Converting tensor to dataset and dataloader
+    finetune_dataset = FinetuneDatasetFromPTFile(ft_files, ft_sepsis)
+    finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=False, drop_last=True,
+                                 num_workers=config.num_workers)
 
-        pt_files = []
-        for pdata in tqdm.tqdm(pt_pickle, desc='Preparing pretraining dataset', total=len(pt_pickle)):
-            pt_files.append(pdata)
+    # Training
+    train(model, args, config, finetune_loader)
 
-        pt_lengths = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'lengths_pretrain_A.txt'),
-                                 header=None).values.squeeze()
-        pt_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'is_sepsis_pretrain_A.txt'),
-                                header=None).values.squeeze()
-
-        # Train set
-        pt_train = DatasetWithPadding(training_examples_list=pt_files, lengths_list=pt_lengths,
-                                      is_sepsis=pt_sepsis)
-        train_loader = DataLoader(pt_train, batch_size=config.batch_size, shuffle=False, drop_last=True,
-                                  num_workers=config.num_workers)
-
-        # Training
-        train(model, args, config, train_loader)
-
-    else:
-
-        # Fine-tuning
-        ft_files = torch.load(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'finetune.pt'))['samples']
-        # ft_lengths = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'lengths.txt'),
-        #                          header=None).values.squeeze()
-        ft_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'is_sepsis.txt'),
-                                header=None).values.squeeze()
-
-        # Converting tensor to dataset and dataloader
-        finetune_dataset = FinetuneDatasetFromPTFile(ft_files, ft_sepsis)
-        finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True,
-                                     num_workers=config.num_workers)
-
-        # Fine tuning
-        chkpoint = torch.load(os.path.join(project_root(), 'results', 'gtn', 'saved_models', 'ckp_ep10.pt'))['model_state_dict']
-        finetune(finetune_loader, args, config, chkpoint)
+    # if pretrain_exp:
+    #
+    #     # Get pretrain, finetune datasets from .../tl_datasets/pretrain and .../tl_datasets/finetune
+    #     # Pre-training
+    #     pt_pickle = pd.read_pickle(
+    #         os.path.join(project_root(), 'data', 'tl_datasets', 'final_dataset_pretrain_A.pickle'))
+    #
+    #     pt_files = []
+    #     for pdata in tqdm.tqdm(pt_pickle, desc='Preparing pretraining dataset', total=len(pt_pickle)):
+    #         pt_files.append(pdata)
+    #
+    #     pt_lengths = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'lengths_pretrain_A.txt'),
+    #                              header=None).values.squeeze()
+    #     pt_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'is_sepsis_pretrain_A.txt'),
+    #                             header=None).values.squeeze()
+    #
+    #     # Train set
+    #     pt_train = DatasetWithPadding(training_examples_list=pt_files, lengths_list=pt_lengths,
+    #                                   is_sepsis=pt_sepsis)
+    #     train_loader = DataLoader(pt_train, batch_size=config.batch_size, shuffle=False, drop_last=True,
+    #                               num_workers=config.num_workers)
+    #
+    #     # Training
+    #     train(model, args, config, train_loader)
+    #
+    # else:
+    #
+    #     # Fine-tuning
+    #     ft_files = torch.load(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'finetune.pt'))['samples']
+    #     # ft_lengths = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'lengths.txt'),
+    #     #                          header=None).values.squeeze()
+    #     ft_sepsis = pd.read_csv(os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'is_sepsis.txt'),
+    #                             header=None).values.squeeze()
+    #
+    #     # Converting tensor to dataset and dataloader
+    #     finetune_dataset = FinetuneDatasetFromPTFile(ft_files, ft_sepsis)
+    #     finetune_loader = DataLoader(finetune_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True,
+    #                                  num_workers=config.num_workers)
+    #
+    #     # Fine tuning
+    #     chkpoint = torch.load(os.path.join(project_root(), 'results', 'gtn', 'saved_models', 'ckp_ep10.pt'))['model_state_dict']
+    #     finetune(finetune_loader, args, config, chkpoint)

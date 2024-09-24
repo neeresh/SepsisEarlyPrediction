@@ -1,11 +1,8 @@
 import math
 from torch import nn
 import torch
-from torch.nn import TransformerEncoder, TransformerEncoderLayer, ModuleList
 import torch.nn.functional as F
 from models.tfc.gtn.encoder import Encoder
-
-"""Two contrastive encoders"""
 
 
 class TFC(nn.Module):
@@ -104,7 +101,6 @@ class TFC(nn.Module):
         encoding_2 = encoding_2.reshape(encoding_2.shape[0], -1)
 
         encoding_concat = getattr(self, f'gate_{domain}')(torch.cat([encoding_1, encoding_2], dim=-1))
-
         gate = F.softmax(encoding_concat, dim=-1)
         h = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
         z = getattr(self, f'projector_{domain}')(h)
@@ -143,4 +139,5 @@ class target_classifier(nn.Module):
         emb_flat = emb.reshape(emb.shape[0], -1)
         emb = torch.sigmoid(self.logits(emb_flat))
         pred = self.logits_simple(emb)
+
         return pred

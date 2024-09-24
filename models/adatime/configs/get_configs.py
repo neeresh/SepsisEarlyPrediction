@@ -1,11 +1,5 @@
-def get_dataset_class(dataset_name):
-    """Return the algorithm class with the given name."""
-    if dataset_name not in globals():
-        raise NotImplementedError("Dataset not found: {}".format(dataset_name))
-    return globals()[dataset_name]
 
-
-class GTN():
+class Config(object):
     def __init__(self):
 
         # GTN
@@ -19,7 +13,7 @@ class GTN():
         self.pe = True
         self.mask = True
         self.lr = 1e-4
-        self.batch_size = 16
+        self.batch_size = 32
         self.num_epochs = 20
 
         self.device = 'cuda'
@@ -29,10 +23,6 @@ class GTN():
         self.d_channel = 40
         self.d_output = 2
 
-        # pre-train configs
-        self.pretrain_epoch = 10
-        self.finetune_epoch = 20
-
         # fine-tune configs
         self.num_classes_target = 2
 
@@ -40,9 +30,22 @@ class GTN():
         self.optimizer = 'adam'
         self.beta1 = 0.9
         self.beta2 = 0.99
-        self.lr = 3e-8  # 3e-4
-        self.lr_f = self.lr
+        self.learning_rate = 0.0005
+        self.weight_decay = 0.0001
+        self.step_size = 50
+        self.lr_decay = 0.5
 
         # data parameters
         self.drop_last = True
-        self.batch_size = 32
+
+        # Adatime
+        self.normalize = False
+        self.shuffle = True
+        self.drop_last = True
+        self.features_len = 336
+        self.final_out_channels = 40
+        self.num_classes = 2
+
+        # DeepCoral
+        self.coral_wt = 4.23
+        self.src_cls_loss_wt = 0.10

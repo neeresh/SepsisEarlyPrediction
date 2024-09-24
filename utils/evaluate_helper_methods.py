@@ -183,6 +183,7 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict)
 
+        print(f"Loading pre-trained classifier: {pre_model} from {model_name}...")
         classifier = target_classifier(configs=config)
         pretrained_classifier_dict = chkpoint["classifier"]
         classifier_dict = classifier.state_dict()
