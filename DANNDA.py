@@ -2,7 +2,6 @@ import collections
 
 import os
 
-# from adatime.da.da import get_backbone_class
 from models.adatime.da.models import get_backbone_class
 from models.adatime.da.algorithms import get_algorithm_class
 from models.adatime.load_data import load_data
@@ -26,7 +25,7 @@ if __name__ == '__main__':
     target_dataloader = load_data(target_path, config)
 
     # Domain Adaptation Algorithm
-    da_algorithm_name = 'AdvSKM'
+    da_algorithm_name = 'DANN'
     da_algorithm = get_algorithm_class(da_algorithm_name)
 
     # Setting up backbone

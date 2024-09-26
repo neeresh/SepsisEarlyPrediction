@@ -6,7 +6,7 @@ from ray.train import get_checkpoint, Checkpoint
 import ray.cloudpickle as pickle
 from torch import optim, nn
 
-# from models.custom_models.gtn import GatedTransformerNetwork
+# from da.custom_models.gtn import GatedTransformerNetwork
 from models.custom_models.gtn_mask import MaskedGatedTransformerNetwork
 from tuning.custom_dataset import get_starters, load_data
 from utils.config import gtn_param

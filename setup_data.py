@@ -244,7 +244,7 @@ class DataSetup:
             training_examples.append(example)
 
         scaler_save_as = 'scaler.pkl'
-        with open(os.path.join(project_root(), 'models', scaler_save_as), 'wb') as f:
+        with open(os.path.join(project_root(), 'da', scaler_save_as), 'wb') as f:
             pickle.dump(scaler, f)
 
         print(f"scale_features() -> Scaler is saved under the name: {scaler_save_as}")

@@ -26,7 +26,7 @@ if __name__ == '__main__':
     target_dataloader = load_data(target_path, config)
 
     # Domain Adaptation Algorithm
-    da_algorithm_name = 'AdvSKM'
+    da_algorithm_name = 'DIRT'
     da_algorithm = get_algorithm_class(da_algorithm_name)
 
     # Setting up backbone

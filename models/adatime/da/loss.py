@@ -27,12 +27,13 @@ class VAT(nn.Module):
         vat_loss = self.virtual_adversarial_loss(X, logit)
         return vat_loss
 
-    def generate_virtual_adversarial_perturbation(self, x, logit):
+    def generate_virtual_adversarial_perturbation(self, x, logit, stage='train'):
         d = torch.randn_like(x, device=self.device)
 
         for _ in range(self.n_power):
             d = self.XI * self.get_normalized_vector(d).requires_grad_()
-            logit_m = self.model(x + d)
+            logit_m = self.model[0]('train', x+d)
+            logit_m = self.model[1](logit_m)
             dist = self.kl_divergence_with_logit(logit, logit_m)
             grad = torch.autograd.grad(dist, [d])[0]
             d = grad.detach()
@@ -46,12 +47,16 @@ class VAT(nn.Module):
         return qlogq - qlogp
 
     def get_normalized_vector(self, d):
-        return F.normalize(d.view(d.size(0), -1), p=2, dim=1).reshape(d.size())
+        # print(d.shape)
+        # return F.normalize(d.view(d.size(0), -1), p=2, dim=1).reshape(d.size())
+        return F.normalize(d.reshape(d.size(0), -1), p=2, dim=1).reshape(d.size())
 
     def virtual_adversarial_loss(self, x, logit):
         r_vadv = self.generate_virtual_adversarial_perturbation(x, logit)
         logit_p = logit.detach()
-        logit_m = self.model(x + r_vadv)
+        # logit_m = self.model(x + r_vadv)
+        logit_m = self.model[0]('train', x + r_vadv)
+        logit_m = self.model[1](logit_m)
         loss = self.kl_divergence_with_logit(logit_p, logit_m)
         return loss
 

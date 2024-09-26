@@ -12,7 +12,7 @@ from tensorboardX import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-# from models.custom_models.gtn import GatedTransformerNetwork
+# from da.custom_models.gtn import GatedTransformerNetwork
 from models.gtn.transformer import Transformer
 from utils.config import gtn_cv_param
 from utils.loader import make_loader

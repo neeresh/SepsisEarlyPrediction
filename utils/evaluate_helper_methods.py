@@ -21,6 +21,46 @@ from utils.pretrain_utils.get_args import get_args
 
 device = 'cuda'
 
+from adatime.da.models import get_backbone_class
+from models.adatime.da.algorithms import get_algorithm_class
+
+import os
+from utils.path_utils import project_root
+import torch
+
+
+def initialize_algorithm(da_method, backbone, configs, device='cuda'):
+
+    # get algorithm class
+    algorithm_class = get_algorithm_class(da_method)
+    backbone_fe = get_backbone_class(backbone)
+
+    # Initilaize the algorithm
+    algorithm = algorithm_class(backbone_fe, configs, device)
+    algorithm.to(device)
+
+    return algorithm
+
+
+def load_checkpoint(model, da_name):
+    model_path = os.path.join(project_root(), 'results', 'adatime', f'{da_name}',
+                              'pretrain_finetune', f'{da_name}_{da_name}_gtn', '0_to_1_run_0',
+                              'checkpoint.pt')
+
+    print(f"Loading model from {model_path}...")
+
+    checkpoint = torch.load(model_path)
+    last_model = checkpoint['last']
+    best_model = checkpoint['best']
+
+    model_dict = model.state_dict()
+
+    pretrained_dict = {k: v for k, v in last_model.items() if k in model_dict}
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict)
+
+    return model
+
 
 # def preprocessing(patient_data):
 #     columns = ['HR', 'O2Sat', 'Temp', 'SBP', 'MAP', 'DBP', 'Resp', 'EtCO2', 'BaseExcess', 'HCO3', 'FiO2', 'pH',
@@ -39,7 +79,6 @@ device = 'cuda'
 
 
 def load_model(model, model_name="model_gtn.pkl"):
-
     device = 'cuda'
 
     print(f"Loading {model_name}...")
@@ -64,9 +103,9 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         print(f"Loading original model...")
 
         model = Transformer(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                    d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                    v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                    pe=config['pe'], mask=config['mask'], device=device).to(device)
+                            d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                            v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                            pe=config['pe'], mask=config['mask'], device=device).to(device)
 
         return load_model(model, model_name)
 
@@ -75,9 +114,9 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         print(f"Loading from {model_name}...")
         print("Loading modified gtn model")
         model = MaskedGatedTransformerNetwork(d_model=config['d_model'], d_input=d_input, d_channel=d_channel,
-                                                d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
-                                                v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
-                                                pe=config['pe'], mask=config['mask'], device=device).to(device)
+                                              d_output=d_output, d_hidden=config['d_hidden'], q=config['q'],
+                                              v=config['v'], h=config['h'], N=config['N'], dropout=config['dropout'],
+                                              pe=config['pe'], mask=config['mask'], device=device).to(device)
 
         return load_model(model, model_name)
 
@@ -191,6 +230,15 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         classifier.load_state_dict(classifier_dict)
 
         return model, classifier
+
+    elif pre_model == 'da':
+        from models.adatime.configs.get_configs import Config
+        config = Config()
+
+        model = initialize_algorithm(model_name, 'GTN', config, device='cuda').to('cuda')
+        pretrained_model = load_checkpoint(model=model, da_name=model_name)
+
+        return pretrained_model
 
     else:
         ValueError(f"Couldn't find requested model: {model_name}")
