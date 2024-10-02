@@ -2,6 +2,7 @@ import collections
 
 import os
 
+# from adatime.da.da import get_backbone_class
 from models.adatime.da.models import get_backbone_class
 from models.adatime.da.algorithms import get_algorithm_class
 from models.adatime.load_data import load_data
@@ -21,11 +22,11 @@ if __name__ == '__main__':
     source_path = os.path.join(project_root(), 'data', 'tl_datasets', 'pretrain', 'pretrain.pt')
     target_path = os.path.join(project_root(), 'data', 'tl_datasets', 'finetune', 'finetune.pt')
 
-    source_dataloader = load_data(source_path, config, batch_size=config.deepcoral_batch_size)
-    target_dataloader = load_data(target_path, config, batch_size=config.deepcoral_batch_size)
+    source_dataloader = load_data(source_path, config)
+    target_dataloader = load_data(target_path, config)
 
     # Domain Adaptation Algorithm
-    da_algorithm_name = 'Deep_Coral'
+    da_algorithm_name = 'HoMM'
     da_algorithm = get_algorithm_class(da_algorithm_name)
 
     # Setting up backbone
@@ -34,7 +35,7 @@ if __name__ == '__main__':
 
     # Initializing algorithm
     device = 'cuda'
-    algorithm = da_algorithm(backbone=da_backbone, configs=config, device=device)
+    algorithm = da_algorithm(backbone=da_backbone, configs=config, device=device, da_algorithm_name=da_algorithm_name)
 
     algorithm.to(device)
 

@@ -1,6 +1,8 @@
 import os.path
 
-from models.simmtm.config import Config
+from torch import nn
+
+# from models.simmtm.config import Config
 from models.simmtm.model import TFC, target_classifier
 from models.tarnet.multitask_transformer_class import MultitaskTransformerModel
 
@@ -21,7 +23,7 @@ from utils.pretrain_utils.get_args import get_args
 
 device = 'cuda'
 
-from adatime.da.models import get_backbone_class
+from models.adatime.da.models import get_backbone_class, GTN, classifier, codats_classifier
 from models.adatime.da.algorithms import get_algorithm_class
 
 import os
@@ -29,35 +31,33 @@ from utils.path_utils import project_root
 import torch
 
 
-def initialize_algorithm(da_method, backbone, configs, device='cuda'):
-
-    # get algorithm class
-    algorithm_class = get_algorithm_class(da_method)
-    backbone_fe = get_backbone_class(backbone)
-
-    # Initilaize the algorithm
-    algorithm = algorithm_class(backbone_fe, configs, device)
-    algorithm.to(device)
-
-    return algorithm
-
-
-def load_checkpoint(model, da_name):
+def load_checkpoint_da(da_name, ckp_type, config):
     model_path = os.path.join(project_root(), 'results', 'adatime', f'{da_name}',
                               'pretrain_finetune', f'{da_name}_{da_name}_gtn', '0_to_1_run_0',
                               'checkpoint.pt')
 
     print(f"Loading model from {model_path}...")
+    pretrained_dict = torch.load(model_path)
 
-    checkpoint = torch.load(model_path)
-    last_model = checkpoint['last']
-    best_model = checkpoint['best']
+    if ckp_type == 'last':
+        print(f"Loading 'last' checkpoint from {model_path}...")
+        pretrained_model = pretrained_dict['last']
+    else:
+        print(f"Loading 'best' checkpoint from {model_path}...")
+        pretrained_model = pretrained_dict['best']
 
-    model_dict = model.state_dict()
+    # Original Model
+    original_feature_extactor = GTN(config)
 
-    pretrained_dict = {k: v for k, v in last_model.items() if k in model_dict}
-    model_dict.update(pretrained_dict)
-    model.load_state_dict(model_dict)
+    if da_name == 'CoDATS':
+        print(f"Loading CoDATS classifier...")
+        original_classifier = codats_classifier(config)
+    else:
+        original_classifier = classifier(config)
+
+    # pre-trained model
+    model = nn.Sequential(original_feature_extactor, original_classifier)
+    model.load_state_dict(pretrained_model)  # Loading weights
 
     return model
 
@@ -93,7 +93,7 @@ def load_model(model, model_name="model_gtn.pkl"):
     return model
 
 
-def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
+def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model, da_ckp_type='best'):
     """
     Used to load the trained model
     """
@@ -232,11 +232,11 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model):
         return model, classifier
 
     elif pre_model == 'da':
+
         from models.adatime.configs.get_configs import Config
         config = Config()
 
-        model = initialize_algorithm(model_name, 'GTN', config, device='cuda').to('cuda')
-        pretrained_model = load_checkpoint(model=model, da_name=model_name)
+        pretrained_model = load_checkpoint_da(da_name=model_name, ckp_type=da_ckp_type, config=config)
 
         return pretrained_model
 

@@ -53,7 +53,8 @@ if __name__ == '__main__':
                                              exp_log_dir, '0', '1', '0')
 
     loss_avg_meters = collections.defaultdict(lambda: AverageMeter())
-    last_model, best_model = algorithm.update(source_dataloader, target_dataloader, loss_avg_meters, logger)
+    last_model, best_model = algorithm.update(source_dataloader, target_dataloader, loss_avg_meters, logger,
+                                              config.codats_num_epochs)
 
     # Save checkpoint
     save_checkpoint(home_path, scenario_log_dir, last_model, best_model)

@@ -53,6 +53,7 @@ class Config(object):
         self.deepcoral_weight_decay = 0.0001
         self.deepcoral_step_size = 50
         self.deepcoral_lr_decay = 0.5
+        self.deepcoral_batch_size = 8
 
         # MMDA
         self.mmda_cond_ent_wt = 1.383002023133561
@@ -67,7 +68,7 @@ class Config(object):
         self.dann_learning_rate = 0.001
         self.dann_src_cls_loss_wt = 5.1390077646202
         self.dann_weight_decay = 0.0001
-        self.dann_disc_hid_dim = 64
+        self.dann_disc_hid_dim = 1024
 
         # CDAN
         self.cdan_cond_ent_wt = 1.2920143348777362
@@ -75,7 +76,7 @@ class Config(object):
         self.cdan_learning_rate = 0.001
         self.cdan_src_cls_loss_wt = 9.430292987535724
         self.cdan_weight_decay = 0.0001
-        self.cdan_disc_hid_dim = 64
+        self.cdan_disc_hid_dim = 1024
 
         # SASA
         self.sasa_domain_loss_wt = 7.3937939938562
@@ -84,21 +85,23 @@ class Config(object):
         self.sasa_weight_decay = 0.0001
 
         # CoDATS
-        self.codats_domain_loss_wt = 3.2750474868706925
-        self.codats_learning_rate = 0.001
-        self.codats_src_cls_loss_wt = 6.335109786953256
+        self.codats_domain_loss_wt = 0.3551260369189456
+        self.codats_learning_rate = 0.005
+        self.codats_src_cls_loss_wt = 1.2534327517723889
         self.codats_weight_decay = 0.0001
-        self.codats_hidden_dim = 64
+        self.codats_hidden_dim = 1024
+        self.codats_num_epochs = 200
 
         # CoTMiX
         self.cotmix_learning_rate = 0.001
-        self.cotmix_mix_ratio = 0.9
+        self.cotmix_mix_ratio = 0.8
         self.cotmix_temporal_shift = 14
-        self.cotmix_src_cls_weight = 0.78
+        self.cotmix_src_cls_weight = 0.50
         self.cotmix_src_supCon_weight = 0.1
         self.cotmix_trg_cont_weight = 0.1
         self.cotmix_trg_entropy_weight = 0.05
-        self.cotmix_weight_decay = 1e-4
+        self.cotmix_weight_decay = 1e-3
+        # self.cotmix_num_epochs = 10
 
         # DIRT
         self.dirt_cond_ent_wt = 1.20721518968644
@@ -107,6 +110,7 @@ class Config(object):
         self.dirt_src_cls_loss_wt = 9.67861021290254
         self.dirt_vat_loss_wt = 7.7102843136045855
         self.dirt_weight_decay = 0.0001
+        self.dirt_num_epochs = 40
 
         # DSAN
         self.dsan_learning_rate = 0.001
@@ -120,5 +124,12 @@ class Config(object):
         self.advskm_learning_rate = 0.0005
         self.advskm_src_cls_loss_wt = 2.468525942065072
         self.advskm_weight_decay = 0.0001
-        self.advskm_DSKN_disc_hid = 64
-        self.advskm_disc_hid_dim = 64
+        self.advskm_DSKN_disc_hid = 1024
+        self.advskm_disc_hid_dim = 1024
+
+        # HoMM
+        self.homm_hommd_wt = 2.8305712579412683
+        self.homm_learning_rate = 0.0005
+        self.homm_src_cls_loss_wt = 0.1282520874653523
+        self.homm_domain_loss_wt = 9.13
+        self.homm_weight_decay = 0.0001

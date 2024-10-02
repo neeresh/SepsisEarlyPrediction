@@ -77,7 +77,7 @@ def get_sepsis_score(data, model):
 
 def evaluate():
     input_directory = os.path.join(project_root(), 'data', 'test_data', 'simmtm', 'psv_files')
-    output_directory = "./predictions/CoDATS/"
+    output_directory = "./predictions/Deep_Coral/"
 
     # Find files
     files = []
@@ -91,7 +91,7 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = 'CoDATS'
+    model_path = 'Deep_Coral'
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output,
                               model_name=model_path, pre_model="da", da_ckp_type='last')
 
@@ -127,7 +127,7 @@ def evaluate():
 evaluate()
 
 auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels/',
-                                                                                       prediction_directory='./predictions/CoDATS/')
+                                                                                       prediction_directory='./predictions/Deep_Coral/')
 
 print(f"Model's ability to distinguish between positive and negative classes (AUROC): {auroc}")
 print(f"Model's precision-recall trade-off (AUPRC): {auprc}")

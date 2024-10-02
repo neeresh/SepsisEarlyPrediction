@@ -35,13 +35,13 @@ class Algorithm(torch.nn.Module):
         self.network = nn.Sequential(self.feature_extractor, self.classifier)
 
     # update function is common to all algorithms
-    def update(self, src_loader, trg_loader, avg_meter, logger):
+    def update(self, src_loader, trg_loader, avg_meter, logger, num_epochs=40):
 
         # defining best and last model
         best_src_risk = float('inf')
         best_model = None
 
-        for epoch in range(1, self.configs.num_epochs + 1):
+        for epoch in range(1, num_epochs + 1):
 
             # training loop
             self.training_epoch(src_loader, trg_loader, avg_meter, epoch)
@@ -644,8 +644,8 @@ class HoMM(Algorithm):
         # optimizer and scheduler
         self.optimizer = torch.optim.Adam(
             self.network.parameters(),
-            lr=configs.learning_rate,
-            weight_decay=configs.weight_decay
+            lr=configs.homm_learning_rate,
+            weight_decay=configs.homm_weight_decay
         )
         self.lr_scheduler = StepLR(self.optimizer, step_size=configs.step_size,
                                    gamma=configs.lr_decay)
@@ -659,20 +659,20 @@ class HoMM(Algorithm):
 
         self.da_algorithm_name = da_algorithm_name
 
-    def training_epoch(self, src_loader, trg_loader, avg_meter, epoch):
+    def training_epoch(self, src_loader, trg_loader, avg_meter, epoch, stage='train'):
 
         # Construct Joint Loaders
         joint_loader = enumerate(zip(src_loader, itertools.cycle(trg_loader)))
 
-        for step, ((src_x, src_y), (trg_x, _)) in joint_loader:
+        for step, ((src_x, src_y), (trg_x, _)) in tqdm.tqdm(joint_loader, desc='Training', total=len(src_loader)):
             src_x, src_y, trg_x = src_x.to(self.device), src_y.to(self.device), trg_x.to(
                 self.device)  # extract source features
 
-            src_feat = self.feature_extractor(stage='train', x_in_t=src_x)
+            src_feat = self.feature_extractor(stage=stage, x_in_t=src_x)
             src_pred = self.classifier(src_feat)
 
             # extract target features
-            trg_feat = self.feature_extractor(stage='train', x_in_t=trg_x)
+            trg_feat = self.feature_extractor(stage=stage, x_in_t=trg_x)
             trg_pred = self.classifier(trg_feat)
 
             # calculate source classification loss
@@ -683,8 +683,8 @@ class HoMM(Algorithm):
             domain_loss = self.HoMM_loss(src_feat, trg_feat)
 
             # calculate the total loss
-            loss = self.hparams.alg_hparams[self.da_algorithm_name]["domain_loss_wt"] * domain_loss + \
-                   self.hparams.alg_hparams[self.da_algorithm_name]["src_cls_loss_wt"] * src_cls_loss
+            loss = self.configs.homm_domain_loss_wt * domain_loss + \
+                   self.configs.homm_src_cls_loss_wt * src_cls_loss
 
             self.optimizer.zero_grad()
             loss.backward()

@@ -61,8 +61,8 @@ def get_sepsis_score(data, model):
 
     with torch.no_grad():
         patient_data = patient_data.to(device)
-        feat_concat = model.feature_extractor('test', patient_data)
-        outputs = model.classifier(feat_concat)
+        feat_concat = model[0]('test', patient_data)
+        outputs = model[1](feat_concat)
 
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
@@ -93,8 +93,7 @@ def evaluate():
     # Load Sepsis Model
     model_path = 'SASA'
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output,
-                                          model_name=model_path,
-                                          pre_model="da")
+                              model_name=model_path, pre_model="da", da_ckp_type='last')
 
     # Iterate over files.
     # files = files[:3000]

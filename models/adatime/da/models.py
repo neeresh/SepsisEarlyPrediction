@@ -37,7 +37,7 @@ class GTN(nn.Module):
         self._d_input = configs.d_input
         self._d_model = configs.d_model
 
-        self.head = nn.Linear(192512, int((configs.d_input * configs.d_channel)/4))
+        # self.head = nn.Linear(192512, int((configs.d_input * configs.d_channel)/4))
 
     def forward(self, stage, x_in_t):
 
@@ -70,7 +70,7 @@ class GTN(nn.Module):
 
         gate = F.softmax(encoding_concat, dim=-1)
         encoding = torch.cat([encoding_1 * gate[:, 0:1], encoding_2 * gate[:, 1:2]], dim=-1)
-        encoding = self.head(encoding)
+        # encoding = self.head(encoding)
 
         return encoding
 
@@ -78,7 +78,8 @@ class GTN(nn.Module):
 class classifier(nn.Module):
     def __init__(self, configs):
         super(classifier, self).__init__()
-        self.logits = nn.Linear(int((configs.d_input * configs.d_channel)/4), configs.num_classes)
+        self.logits = nn.Linear(configs.d_model * configs.d_input + configs.d_model * configs.d_channel,
+                                configs.num_classes)
         self.configs = configs
 
     def forward(self, x):
@@ -109,7 +110,8 @@ class Discriminator(nn.Module):
 
         self.layer = nn.Sequential(
             # nn.Linear(configs.features_len * configs.final_out_channels, configs.dann_disc_hid_dim),
-            nn.Linear(3360, configs.dann_disc_hid_dim),
+            nn.Linear(configs.d_model * configs.d_input + configs.d_model * configs.d_channel,
+                      configs.dann_disc_hid_dim),
             nn.ReLU(),
             nn.Linear(configs.dann_disc_hid_dim, configs.dann_disc_hid_dim),
             nn.ReLU(),
@@ -153,7 +155,7 @@ class Discriminator_CDAN(nn.Module):
         self.restored = False
 
         self.layer = nn.Sequential(
-            nn.Linear(6720, configs.cdan_disc_hid_dim),
+            nn.Linear(385024, configs.cdan_disc_hid_dim),
             nn.ReLU(),
             nn.Linear(configs.cdan_disc_hid_dim, configs.cdan_disc_hid_dim),
             nn.ReLU(),
@@ -173,7 +175,7 @@ class codats_classifier(nn.Module):
         model_output_dim = configs.features_len
         self.hidden_dim = configs.codats_hidden_dim
         self.logits = nn.Sequential(
-            nn.Linear(3360, self.hidden_dim),
+            nn.Linear(configs.d_model * configs.d_input + configs.d_model * configs.d_channel, self.hidden_dim),
             nn.ReLU(),
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
@@ -203,7 +205,7 @@ class AdvSKM_Disc(nn.Module):
         """Init discriminator."""
         super(AdvSKM_Disc, self).__init__()
 
-        self.input_dim = 3360
+        self.input_dim = configs.d_model * configs.d_input + configs.d_model * configs.d_channel
         self.hid_dim = configs.advskm_DSKN_disc_hid
         self.branch_1 = nn.Sequential(
             nn.Linear(self.input_dim, self.hid_dim),
@@ -216,7 +218,8 @@ class AdvSKM_Disc(nn.Module):
             cos_act
         )
         self.branch_2 = nn.Sequential(
-            nn.Linear(3360, configs.advskm_disc_hid_dim),
+            nn.Linear(configs.d_model * configs.d_input + configs.d_model * configs.d_channel,
+                      configs.advskm_disc_hid_dim),
             nn.Linear(configs.advskm_disc_hid_dim, configs.advskm_disc_hid_dim),
             nn.BatchNorm1d(configs.advskm_disc_hid_dim),
             nn.ReLU(),
@@ -416,7 +419,6 @@ class CNN_ATTN(nn.Module):
         intra_attention_weight_xi = self.self_attention(Q=Q_xi, K=K_xi, sparse=True)
         Z_i = torch.bmm(intra_attention_weight_xi.view(intra_attention_weight_xi.shape[0], 1, -1),
                         V_xi.view(V_xi.shape[0], self.feat_len, -1))
-        final_feature = F.normalize(Z_i, dim=-1).view(Z_i.shape[0],-1)
+        final_feature = F.normalize(Z_i, dim=-1).view(Z_i.shape[0], -1)
 
         return final_feature
-

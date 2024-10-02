@@ -61,8 +61,8 @@ def get_sepsis_score(data, model):
 
     with torch.no_grad():
         patient_data = patient_data.to(device)
-        feat_concat = model.feature_extractor('test', patient_data)
-        outputs = model.classifier(feat_concat)
+        feat_concat = model[0]('test', patient_data)
+        outputs = model[1](feat_concat)
 
         _, predicted = torch.max(outputs, 1)
         probabilities = F.softmax(outputs, dim=1)
@@ -76,8 +76,8 @@ def get_sepsis_score(data, model):
 
 
 def evaluate():
-    input_directory = os.path.join(project_root(), 'data', 'test_data', 'simmtm', 'psv_files')
-    output_directory = "./predictions/CDAN/"
+    input_directory = os.path.join(project_root(), 'data', 'tl_datasets', 'test', 'psv_files')
+    output_directory = "./predictions/DSAN/"
 
     # Find files
     files = []
@@ -91,10 +91,9 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = 'CDAN'
+    model_path = 'DSAN'
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output,
-                                          model_name=model_path,
-                                          pre_model="da")
+                              model_name=model_path, pre_model="da", da_ckp_type='last')
 
     # Iterate over files.
     # files = files[:3000]
@@ -128,7 +127,7 @@ def evaluate():
 evaluate()
 
 auroc, auprc, accuracy, f_measure, normalized_observed_utility = evaluate_sepsis_score(label_directory='./labels/',
-                                                                                       prediction_directory='./predictions/CDAN/')
+                                                                                       prediction_directory='./predictions/DSAN/')
 
 print(f"Model's ability to distinguish between positive and negative classes (AUROC): {auroc}")
 print(f"Model's precision-recall trade-off (AUPRC): {auprc}")
