@@ -12,6 +12,7 @@ class Config(object):
         self.pe = True
         self.mask = True
         self.lr = 1e-4
+        self.batch_size = 16
 
         self.device = 'cuda'
 
@@ -21,7 +22,7 @@ class Config(object):
         self.d_output = 2
 
         # pre-train configs
-        self.pretrain_epoch = 10
+        self.pretrain_epoch = 50
         self.finetune_epoch = 20
 
         # fine-tune configs
@@ -41,5 +42,3 @@ class Config(object):
         self.num_workers = 4
         self.shuffle = True
         self.seed = 2024
-
-        self.pca_dim = 32

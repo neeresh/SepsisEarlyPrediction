@@ -150,6 +150,7 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model, da_ck
     elif pre_model == 'pretrained_gtn':
 
         from models.gtn.config import Config
+        from models.gtn_modified.transformer import Transformer
 
         config = Config()
         # args, unknown = get_args()
@@ -164,9 +165,9 @@ def load_sepsis_model(d_input, d_channel, d_output, model_name, pre_model, da_ck
                             dropout=config.dropout, pe=config.pe, mask=config.mask)
 
         pretrained_dict = chkpoint["model_state_dict"]
-        model_dict = model.state_dict()
-        model_dict.update(pretrained_dict)
-        model.load_state_dict(model_dict)
+        # model_dict = model.state_dict()
+        # model_dict.update(pretrained_dict)
+        model.load_state_dict(pretrained_dict)
 
         return model
 

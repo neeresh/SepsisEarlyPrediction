@@ -29,8 +29,8 @@ class DataSetup:
         self.data_paths = [
             os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
                          'training_setA'),
-            os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
-                         'training_setB')
+            # os.path.join(project_root(), 'physionet.org', 'files', 'challenge-2019', '1.0.0', 'training',
+            #              'training_setB')
         ]
 
         self.destination_path = os.path.join(project_root(), 'data', 'csv')
@@ -596,4 +596,4 @@ if __name__ == '__main__':
     # setup.convert_pickle_to_csv(pickle_file='final_dataset.pickle', dir='')
 
     # Updating A+B
-    setup.update_csv_files('final_dataset.pickle')
+    # setup.update_csv_files('final_dataset.pickle')
