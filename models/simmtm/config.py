@@ -23,8 +23,8 @@ class Config(object):
         self.d_output = 2
 
         # pre-train configs
-        self.pretrain_epoch = 10
-        self.finetune_epoch = 20
+        self.pretrain_epoch = 50  # 10
+        self.finetune_epoch = 50  # 20
 
         # fine-tune configs
         self.num_classes_target = 2

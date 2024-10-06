@@ -163,7 +163,7 @@ def train(model, args, config, train_loader):
     model_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=model_optimizer, T_max=args.pretrain_epoch)
 
     experiment_log_dir = os.path.join(project_root(), 'results', 'simmtm')
-    os.makedirs(os.path.join(experiment_log_dir, f"saved_models"), exist_ok=True)
+    os.makedirs(os.path.join(experiment_log_dir, f"gtn_mlp"), exist_ok=True)
 
     best_performance = None
     for epoch in range(1, config.pretrain_epoch + 1):
@@ -174,20 +174,19 @@ def train(model, args, config, train_loader):
         print(f'Pre-training Epoch: {epoch + 1}\t Train Loss: {total_loss:.4f}\t '
               f'CL Loss: {total_cl_loss:.4f}\t RB Loss: {total_rb_loss:.4f}\n')
 
-        if epoch % 5 == 0:
+        if epoch % 2 == 0:
             chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': total_loss,
                         'model_state_dict': model.state_dict()}
             torch.save(chkpoint,
-                       os.path.join(experiment_log_dir, f"saved_models/train_on_finetune/", f'ckp_ep{epoch}.pt'))
+                       os.path.join(experiment_log_dir, f"gtn_mlp/train_on_finetune/", f'ckp_ep{epoch}.pt'))
 
 
 def finetune(finetune_loader, args, config, chkpoint):
-
     ft_model, ft_classifier, ft_model_optimizer, ft_classifier_optimizer, ft_scheduler = build_model(
         args, args.lr, config, device='cuda', chkpoint=chkpoint)
 
     experiment_log_dir = os.path.join(project_root(), 'results', 'simmtm')
-    os.makedirs(os.path.join(experiment_log_dir, f"saved_models"), exist_ok=True)
+    os.makedirs(os.path.join(experiment_log_dir, f"gtn_mlp"), exist_ok=True)
 
     for ep in range(1, config.finetune_epoch + 1):
         ft_model, classifier, valid_loss, valid_acc, valid_auc, valid_prc, emb_finetune, label_finetune, F1 = model_finetune(
@@ -201,12 +200,12 @@ def finetune(finetune_loader, args, config, chkpoint):
         print(f"valid_loss: {valid_loss} valid_acc: {valid_acc}")
         print("=" * 100)
 
-        if ep % 5 == 0:
+        if ep % 2 == 0:
             # Saving feature encoder and classifier after finetuning for testing.
             chkpoint = {'seed': args.seed, 'epoch': ep, 'train_loss': valid_loss,
                         'model_state_dict': ft_model.state_dict(),
                         'classifier': classifier.state_dict()}
-            torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'finetune_ep{ep}.pt'))
+            torch.save(chkpoint, os.path.join(experiment_log_dir, f"gtn_mlp/", f'finetune_ep{ep}.pt'))
 
 
 if __name__ == '__main__':
@@ -231,7 +230,6 @@ if __name__ == '__main__':
 
     pt_train = torch.load(ptpath)
     ft = torch.load(ftpath)
-
 
     # ft_dataset = Load_Dataset(ft, TSlength_aligned=336, training_mode='pretrain')
     # train_loader = DataLoader(dataset=ft_dataset, batch_size=config.batch_size, shuffle=True,
@@ -260,9 +258,9 @@ if __name__ == '__main__':
                                      drop_last=True, num_workers=4)
 
         # Fine tuning
-        chkpoint = torch.load(os.path.join(project_root(), 'results', 'simmtm', 'saved_models', 'ckp_ep9.pt'))['model_state_dict']
+        chkpoint = torch.load(os.path.join(project_root(), 'results', 'simmtm', 'gtn_mlp', 'ckp_ep9.pt'))[
+            'model_state_dict']
         finetune(finetune_loader, args, config, chkpoint)
-
 
 """
 Utility Score: 0.26

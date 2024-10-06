@@ -54,7 +54,7 @@ class TFC(nn.Module):
             self.contrastive = ContrastiveWeight(args)
             self.aggregation = AggregationRebuild(args)
             # self.head = nn.Linear(240128, 336)  # Reconstruction, we have 336 time steps
-            self.head = nn.Linear(192512, configs.d_input * configs.d_channel)  # Replaced to handle multi-variate
+            self.head = nn.Linear(3008, configs.d_input * configs.d_channel)  # Replaced to handle multi-variate
             self.mse = torch.nn.MSELoss()
 
     def forward(self, stage, x_in_t, pre_train=False):

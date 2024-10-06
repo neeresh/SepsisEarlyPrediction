@@ -67,7 +67,7 @@ def train(model, args, config, train_loader, device='cuda'):
                                        weight_decay=config.weight_decay)
 
     experiment_log_dir = os.path.join(project_root(), 'results', 'tfc')
-    os.makedirs(os.path.join(experiment_log_dir, f"saved_models"), exist_ok=True)
+    os.makedirs(os.path.join(experiment_log_dir, f"gtn_mlp"), exist_ok=True)
 
     log_file_path = 'pretrain_tfc.txt'
     with open(log_file_path, 'a') as log_file:
@@ -78,8 +78,9 @@ def train(model, args, config, train_loader, device='cuda'):
             print(log_text)
             log_file.write(log_text)
 
-            chkpoint = {'epoch': epoch, 'train_loss': train_loss, 'model_state_dict': model.state_dict()}
-            torch.save(chkpoint, os.path.join(experiment_log_dir, "saved_models", f'ckp_ep{epoch}.pt'))
+            if epoch % 2 == 0:
+                chkpoint = {'epoch': epoch, 'train_loss': train_loss, 'model_state_dict': model.state_dict()}
+                torch.save(chkpoint, os.path.join(experiment_log_dir, "gtn_mlp", f'ckp_ep{epoch}.pt'))
 
 
 def build_model(args, lr, configs, device='cuda', chkpoint=None):
@@ -210,7 +211,7 @@ def finetune(finetune_loader, args, config, chkpoint):
         args, args.lr, config, device='cuda', chkpoint=chkpoint)
 
     experiment_log_dir = os.path.join(project_root(), 'results', 'tfc')
-    os.makedirs(os.path.join(experiment_log_dir, f"saved_models"), exist_ok=True)
+    os.makedirs(os.path.join(experiment_log_dir, f"gtn_mlp"), exist_ok=True)
 
     log_file_path = 'finetune_tfc.txt'
     with open(log_file_path, 'a') as log_file:
@@ -232,11 +233,13 @@ def finetune(finetune_loader, args, config, chkpoint):
             print(log_text)
             log_file.write(log_text)
 
-            # Saving feature encoder and classifier after finetuning for testing.
-            chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': ave_loss, 'model_state_dict': model.state_dict(),
-                        'classifier': ft_classifier.state_dict()}
+            if epoch % 2 == 0:
+                # Saving feature encoder and classifier after finetuning for testing.
+                chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': ave_loss,
+                            'model_state_dict': model.state_dict(),
+                            'classifier': ft_classifier.state_dict()}
 
-            torch.save(chkpoint, os.path.join(experiment_log_dir, f"saved_models/", f'finetune_ep{epoch}.pt'))
+                torch.save(chkpoint, os.path.join(experiment_log_dir, f"gtn_mlp/", f'finetune_ep{epoch}.pt'))
 
 
 def set_seed(seed):
@@ -253,7 +256,7 @@ if __name__ == '__main__':
 
     seed = set_seed(2024)
 
-    pretrain_exp = False
+    pretrain_exp = True
 
     # Gathering args and configs
     args, unknown = get_args()
@@ -279,7 +282,7 @@ if __name__ == '__main__':
         finetune_dataset = torch.load(os.path.join(tl_datasets, 'finetune', 'finetune.pt'))
         finetune_loader = data_generator(finetune_dataset, configs)
 
-        chkpoint = torch.load(os.path.join(project_root(), 'results', 'tfc', 'saved_models', 'ckp_ep20.pt'))[
+        chkpoint = torch.load(os.path.join(project_root(), 'results', 'tfc', 'gtn_mlp', 'ckp_ep20.pt'))[
             'model_state_dict']
 
         finetune(finetune_loader, args, configs, chkpoint)
