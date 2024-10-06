@@ -5,6 +5,7 @@ from models.gtn.encoder import Encoder
 import math
 import torch.nn.functional as F
 
+
 class Transformer(Module):
     def __init__(self,
                  d_model: int,
@@ -47,10 +48,10 @@ class Transformer(Module):
 
         # Adding MLP
         gate_output_dim = d_model * d_input + d_model * d_channel
-        self.mlp_fc1 = torch.nn.Linear(gate_output_dim, int(gate_output_dim/64))
+        self.mlp_fc1 = torch.nn.Linear(gate_output_dim, int(gate_output_dim / 64))
         self.mlp_relu = torch.nn.ReLU()
-        self.mlp_fc2 = torch.nn.Linear(int(gate_output_dim/64), int(gate_output_dim/64))
-        self.output_linear = torch.nn.Linear(int(gate_output_dim/64), d_output)
+        self.mlp_fc2 = torch.nn.Linear(int(gate_output_dim / 64), int(gate_output_dim / 64))
+        self.output_linear = torch.nn.Linear(int(gate_output_dim / 64), d_output)
 
         self.pe = pe
         self._d_input = d_input

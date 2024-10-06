@@ -104,7 +104,7 @@ def evaluate():
         os.mkdir(output_directory)
 
     # Load Sepsis Model
-    model_path = os.path.join(project_root(), 'results', 'gtn', 'reweighted_sampler', 'finetune_ep20.pt')
+    model_path = os.path.join(project_root(), 'results', 'modified_gtn', 'reweighted_sampler', 'finetune_ep20.pt')
     model = load_sepsis_model(d_input=d_input, d_channel=d_channel, d_output=d_output, model_name=model_path,
                               pre_model="pretrained_gtn")
 
@@ -137,7 +137,7 @@ def evaluate():
     get_true_labels(custom_files=files)
 
 
-# evaluate()
+evaluate()
 
 # Get true labels
 # get_true_labels()

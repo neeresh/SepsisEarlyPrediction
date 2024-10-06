@@ -11,7 +11,7 @@ class Config(object):
         self.dropout = 0.2
         self.pe = True
         self.mask = True
-        # self.lr = 1e-4
+        self.lr = 1e-4
 
         self.device = 'cuda'
 

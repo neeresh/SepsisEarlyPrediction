@@ -11,8 +11,8 @@ class Config(object):
         self.dropout = 0.2
         self.pe = True
         self.mask = True
-        self.lr = 1e-4
-        self.batch_size = 16
+        # self.lr = 1e-4
+        # self.batch_size = 16
         self.num_epochs = 20
 
         self.device = 'cuda'
