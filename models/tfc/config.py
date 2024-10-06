@@ -10,8 +10,8 @@ class Config(object):
         self.dropout = 0.2
         self.pe = True
         self.mask = True
-        self.lr = 1e-4
-        self.batch_size = 16
+        # self.lr = 1e-4
+        # self.batch_size = 16
         # self.num_epochs = 20
 
         self.device = 'cuda'
@@ -22,7 +22,7 @@ class Config(object):
         self.d_output = 2
 
         # pre-train configs
-        self.pretrain_epoch = 20
+        self.pretrain_epoch = 50
         self.finetune_epoch = 50
 
         # fine-tune configs
@@ -38,7 +38,7 @@ class Config(object):
 
         # data parameters
         self.drop_last = True
-        self.batch_size = 16
+        self.batch_size = 32  # 16
 
         # Target Length
         self.TSlength_aligned = 336

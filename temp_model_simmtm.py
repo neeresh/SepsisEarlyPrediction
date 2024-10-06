@@ -178,7 +178,7 @@ def train(model, args, config, train_loader):
             chkpoint = {'seed': args.seed, 'epoch': epoch, 'train_loss': total_loss,
                         'model_state_dict': model.state_dict()}
             torch.save(chkpoint,
-                       os.path.join(experiment_log_dir, f"gtn_mlp/train_on_finetune/", f'ckp_ep{epoch}.pt'))
+                       os.path.join(experiment_log_dir, f"gtn_mlp/", f'ckp_ep{epoch}.pt'))
 
 
 def finetune(finetune_loader, args, config, chkpoint):

@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from models.tfc.config import Config
 from models.tfc.dataloader import generate_freq, data_generator
 from models.tfc.loss import NTXentLoss_poly
-from models.tfc.model import TFC, target_classifier
+from models.tfc.model_mlp import TFC, target_classifier
 from utils.model_size import get_model_size
 from utils.path_utils import project_root
 from utils.pretrain_utils.get_args import get_args
